@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -36,11 +35,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lamahuissn.currency.data.CurrencyCatalog
-import com.lamahuissn.currency.data.groupDigits
+import com.lamahuissn.currency.data.Expr
 
 /**
  * The amount sheet. It is the one warm surface in the app: the burgundy says "you are typing a
  * number", the black screens say "you are reading rates".
+ *
+ * The entry accepts arithmetic — `1500×3`, `200+350` — because collecting money is mostly sums, and
+ * doing them here leaves no hand-rounding on the table. The running total shows above the pad as the
+ * expression is built, so the number is never a surprise.
  */
 @Composable
 fun KeypadSheet(
@@ -52,6 +55,14 @@ fun KeypadSheet(
     val currency = CurrencyCatalog.of(code)
     var entry by remember(code, initialAmount) {
         mutableStateOf(trimNumber(initialAmount))
+    }
+
+    val hasOperator = Expr.operatorCount(entry) > 0
+    val value = Expr.evaluate(entry)
+    val display = when {
+        entry.isEmpty() -> "Enter Amount"
+        hasOperator && value != null -> Expr.resultText(value)
+        else -> Expr.display(entry)
     }
 
     Box(
@@ -88,11 +99,23 @@ fun KeypadSheet(
 
             Spacer(Modifier.weight(1f))
 
+            // The sum being built, small and out of the way — empty for a plain amount.
+            Text(
+                text = if (hasOperator) Expr.display(entry) else " ",
+                color = Color(0xFFB9A7A8),
+                fontSize = 15.sp,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Spacer(Modifier.height(4.dp))
+
             // What was typed is what is shown: 100 stays 100, no forced decimals.
             Text(
-                text = if (entry.isEmpty()) "Enter Amount" else groupDigits(entry),
+                text = display,
                 color = if (entry.isEmpty()) Color(0xFF8B7576) else Ink.Text,
-                fontSize = if (entry.length > 9) 30.sp else 40.sp,
+                fontSize = if (display.length > 9) 30.sp else 40.sp,
                 fontWeight = FontWeight.Light,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
@@ -111,33 +134,49 @@ fun KeypadSheet(
 
             Spacer(Modifier.weight(1f))
 
+            OperatorRow(
+                onOperator = { op ->
+                    entry = when {
+                        entry.isEmpty() -> ""                       // nothing to operate on yet
+                        Expr.isOperator(entry.last()) ->
+                            entry.dropLast(1) + op                  // replace, never double up
+                        else -> (entry + op).take(24)
+                    }
+                },
+            )
+
+            Spacer(Modifier.height(12.dp))
+
             Keypad(
                 onDigit = { digit ->
+                    val operand = entry.split('+', '−', '×', '÷').last()
                     entry = when {
-                        digit == "." && entry.contains(".") -> entry
-                        digit == "." && entry.isEmpty() -> "0."
+                        digit == "." && operand.contains(".") -> entry
+                        digit == "." && (entry.isEmpty() || Expr.isOperator(entry.last())) -> entry + "0."
+                        Expr.isOperator(entry.lastOrNull() ?: ' ') -> entry + digit
                         entry == "0" && digit != "." -> digit
-                        entry.length >= 12 -> entry
+                        entry.length >= 24 -> entry
                         else -> entry + digit
                     }
                 },
-                // One tap wipes the whole amount, as asked: the key is a clear, not a digit eraser.
-                onBackspace = { entry = "" },
+                // One character at a time; C wipes the lot.
+                onBackspace = { entry = entry.dropLast(1) },
+                onClear = { entry = "" },
                 onQuick = { amount -> entry = trimNumber(amount) },
             )
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(16.dp))
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
                     .clip(RoundedCornerShape(28.dp))
-                    .background(if (entry.isEmpty()) Color(0xFF1E7A2E) else Ink.Green)
+                    .background(if (value == null || value <= 0.0) Color(0xFF1E7A2E) else Ink.Green)
                     .pointerInput(entry) {
                         detectTapGestures {
-                            val value = entry.toDoubleOrNull()
-                            if (value != null && value > 0.0) onConvert(value)
+                            val computed = Expr.evaluate(entry)
+                            if (computed != null && computed > 0.0) onConvert(computed)
                         }
                     },
                 contentAlignment = Alignment.Center,
@@ -150,24 +189,55 @@ fun KeypadSheet(
     }
 }
 
+/** ÷ × − + across the sheet: the four operations a till actually needs. */
+@Composable
+private fun OperatorRow(onOperator: (Char) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        listOf('÷', '×', '−', '+').forEach { op ->
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color(0x2EFFFFFF))
+                    .border(1.dp, Color(0x1AFFFFFF), RoundedCornerShape(24.dp))
+                    .pointerInput(op) {
+                        detectTapGestures {
+                            Sfx.click()
+                            onOperator(op)
+                        }
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(op.toString(), color = Ink.Text, fontSize = 22.sp, fontWeight = FontWeight.Medium)
+            }
+        }
+    }
+}
+
 @Composable
 private fun Keypad(
     onDigit: (String) -> Unit,
     onBackspace: () -> Unit,
+    onClear: () -> Unit,
     onQuick: (Double) -> Unit,
 ) {
+    // The fourth column is the quick-amount column; C takes the place of the least useful chip.
     val rows = listOf(
-        listOf("7", "8", "9") to ("1K" to 1000.0),
-        listOf("4", "5", "6") to ("100" to 100.0),
-        listOf("1", "2", "3") to ("10" to 10.0),
-        listOf("0", ".", "⌫") to ("1" to 1.0),
+        listOf("7", "8", "9") to "1K",
+        listOf("4", "5", "6") to "100",
+        listOf("1", "2", "3") to "10",
+        listOf("0", ".", "⌫") to "C",
     )
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         rows.forEach { (digits, quick) ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 digits.forEach { key ->
                     Box(
@@ -199,15 +269,25 @@ private fun Keypad(
                         .aspectRatio(1f)
                         .clip(CircleShape)
                         .background(Color(0x33000000))
-                        .pointerInput(quick.first) {
+                        .pointerInput(quick) {
                             detectTapGestures {
                                 Sfx.click()
-                                onQuick(quick.second)
+                                when (quick) {
+                                    "C" -> onClear()
+                                    "1K" -> onQuick(1000.0)
+                                    "100" -> onQuick(100.0)
+                                    else -> onQuick(10.0)
+                                }
                             }
                         },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(quick.first, color = Ink.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = quick,
+                        color = if (quick == "C") Color(0xFFFFD9D9) else Ink.Text,
+                        fontSize = if (quick == "C") 20.sp else 18.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
                 }
             }
         }
