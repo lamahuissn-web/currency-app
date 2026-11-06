@@ -156,8 +156,9 @@ fun AddCurrencyScreen(
                 }
             }
 
-            Box(Modifier.weight(1f)) {
+            Row(Modifier.weight(1f)) {
                 LazyColumn(
+                    modifier = Modifier.weight(1f),
                     state = listState,
                     contentPadding = PaddingValues(bottom = 96.dp),
                 ) {
@@ -210,30 +211,40 @@ fun AddCurrencyScreen(
                     }
                 }
 
+                // The A–Z scrubber gets its OWN strip, outside the list: it used to float on top of
+                // the rows and its letters landed on the selection ticks. Every letter takes an equal
+                // share of the height, so the column is evenly spaced and cannot overflow on a small
+                // screen however many sections there are.
                 if (sections.size > 2) {
                     Column(
                         modifier = Modifier
-                            .align(Alignment.CenterEnd)
-                            .padding(end = 6.dp)
-                            .fillMaxHeight(0.62f),
-                        verticalArrangement = Arrangement.SpaceEvenly,
+                            .width(24.dp)
+                            .fillMaxHeight()
+                            .padding(vertical = 2.dp),
+                        verticalArrangement = Arrangement.Top,
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         sections.keys.forEach { letter ->
-                            Text(
-                                text = letter.toString(),
-                                color = Ink.Green,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
+                            Box(
                                 modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth()
                                     .pointerInput(letter) {
                                         detectTapGestures {
                                             val target = sectionIndex[letter] ?: return@detectTapGestures
                                             scope.launch { listState.scrollToItem(target) }
                                         }
-                                    }
-                                    .padding(vertical = 1.dp, horizontal = 4.dp),
-                            )
+                                    },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = letter.toString(),
+                                    color = Ink.Green,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                )
+                            }
                         }
                     }
                 }
