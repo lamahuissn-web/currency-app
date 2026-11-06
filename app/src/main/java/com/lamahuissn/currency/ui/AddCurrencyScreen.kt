@@ -28,6 +28,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.Icon
@@ -44,7 +46,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -76,6 +82,8 @@ fun AddCurrencyScreen(
     var query by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    val searchFocus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
 
     val source = when (tab) {
         CatalogTab.All -> CurrencyCatalog.fiat + CurrencyCatalog.crypto
@@ -304,12 +312,24 @@ fun AddCurrencyScreen(
                     .height(48.dp)
                     .clip(RoundedCornerShape(24.dp))
                     .background(Ink.Surface)
+                    // The WHOLE capsule is the target. Before, only the one-line-tall text field
+                    // itself could take a tap, so a press on the padding did nothing and the
+                    // keyboard only appeared when a tap happened to land on that thin strip.
+                    .pointerInput(Unit) {
+                        detectTapGestures {
+                            searchFocus.requestFocus()
+                            keyboard?.show()
+                        }
+                    }
                     .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("⌕", color = Ink.Muted, fontSize = 18.sp)
                 Spacer(Modifier.width(10.dp))
-                Box(Modifier.weight(1f)) {
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    contentAlignment = Alignment.CenterStart,
+                ) {
                     if (query.isEmpty()) {
                         Text(
                             "Currency, Country, Region, or Code",
@@ -323,7 +343,18 @@ fun AddCurrencyScreen(
                         singleLine = true,
                         textStyle = TextStyle(color = Ink.Text, fontSize = 13.sp),
                         cursorBrush = SolidColor(Ink.Green),
-                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .focusRequester(searchFocus),
+                        // The field fills the capsule so its own touch area is the full height;
+                        // the box centres the single line inside it.
+                        decorationBox = { inner ->
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
+                                inner()
+                            }
+                        },
                     )
                 }
                 if (query.isNotEmpty()) {
