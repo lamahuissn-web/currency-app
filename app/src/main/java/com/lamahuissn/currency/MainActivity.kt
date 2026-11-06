@@ -11,6 +11,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
@@ -37,6 +38,9 @@ import com.lamahuissn.currency.ui.KeypadSheet
 import com.lamahuissn.currency.ui.NavTab
 import com.lamahuissn.currency.ui.PairPickerScreen
 import com.lamahuissn.currency.ui.Sfx
+import com.lamahuissn.currency.ui.SplashOverlay
+import com.lamahuissn.currency.ui.markSplashSeen
+import com.lamahuissn.currency.ui.rememberSplashVisible
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -75,6 +79,18 @@ private fun Root(viewModel: AppViewModel = viewModel()) {
     // silenced the tick, because that switch is off by default.
     LaunchedEffect(convert.soundOn) {
         Sfx.setEnabled(convert.soundOn)
+    }
+
+    // The splash plays on a cold start only: a resume should land on the list, not on a logo again.
+    val firstRun = rememberSplashVisible()
+    var splashVisible by remember { mutableStateOf(firstRun) }
+    LaunchedEffect(Unit) {
+        if (splashVisible) {
+            // Long enough to read the mark, short enough that it never feels like a toll gate.
+            kotlinx.coroutines.delay(1250)
+            splashVisible = false
+            markSplashSeen()
+        }
     }
 
     var tab by remember { mutableStateOf(NavTab.Convert) }
@@ -179,6 +195,14 @@ private fun Root(viewModel: AppViewModel = viewModel()) {
                 },
                 onClose = { addingCurrency = false },
             )
+        }
+
+        AnimatedVisibility(
+            visible = splashVisible,
+            enter = fadeIn(tween(200)),
+            exit = fadeOut(tween(340)) + scaleOut(tween(340), targetScale = 1.03f),
+        ) {
+            SplashOverlay(version = com.lamahuissn.currency.BuildConfig.VERSION_NAME)
         }
 
         AnimatedVisibility(
