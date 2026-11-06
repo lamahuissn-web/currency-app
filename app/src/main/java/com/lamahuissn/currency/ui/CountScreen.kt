@@ -244,7 +244,7 @@ fun CountScreen(
                             )
                             Text("→", color = Color(0xFF6FAE85), fontSize = 12.sp, modifier = Modifier.padding(horizontal = 8.dp))
                             Text(
-                                CountMath.usd(local * CountMath.rateFor(code, rates, state.manualRates)),
+                                CountMath.usd(CountMath.toUsd(local, code, rates, state.manualRates)),
                                 color = Ink.Text,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold,
@@ -349,7 +349,7 @@ fun CountScreen(
                                 )
                                 if (localTotal > 0) {
                                     Text(
-                                        CountMath.usd(localTotal * CountMath.rateFor(code, rates, state.manualRates)),
+                                        CountMath.usd(CountMath.toUsd(localTotal, code, rates, state.manualRates)),
                                         color = Ink.Green,
                                         fontSize = 11.sp,
                                     )
@@ -395,7 +395,7 @@ fun CountScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Text(
-                                    text = "1 $code = ${CountMath.rate(CountMath.rateFor(code, rates, state.manualRates))}",
+                                    text = "1 USD = ${CountMath.rate(CountMath.rateFor(code, rates, state.manualRates))} $code",
                                     color = Ink.Muted,
                                     fontSize = 11.sp,
                                 )
@@ -453,7 +453,7 @@ fun CountScreen(
                     "How many ${currency.symbol}${CountMath.group((request.denomination ?: 0L).toDouble())} notes?"
                 }
                 KeypadKind.Expected -> "Expected amount · USD"
-                KeypadKind.Rate -> "Manual rate · 1 ${request.code} = ? USD"
+                KeypadKind.Rate -> "Manual rate · 1 USD = ? ${request.code}"
             }
             CountKeypadSheet(
                 title = title,

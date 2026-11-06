@@ -225,7 +225,7 @@ fun CountPickerSheet(
                         Column(Modifier.weight(1f)) {
                             Text(currency.name, color = Ink.Text, fontSize = 16.sp)
                             Text(
-                                "$code · 1 $code = ${CountMath.rate(rate)}",
+                                "$code · 1 USD = ${CountMath.rate(rate)} $code",
                                 color = Ink.Muted,
                                 fontSize = 11.5.sp,
                             )
@@ -263,9 +263,9 @@ fun CountRatesSheet(
             Text(
                 text = if (live) {
                     (if (updatedAt > 0) "Updated ${CountScreenTime.format(updatedAt)}. " else "") +
-                        "Tap a currency to type your own rate. Your rate wins over the market's."
+                        "Rates are in the same direction as the Convert tab: how many units of that currency 1 USD buys. Tap one to type your own."
                 } else {
-                    "No connection, so these are the last rates saved on this phone. Tap to type your own."
+                    "No connection, so these are the last rates saved on this phone. Tap one to type your own."
                 },
                 color = Ink.Muted,
                 fontSize = 12.sp,
@@ -285,10 +285,10 @@ fun CountRatesSheet(
                     FlagDot(currency.flag, currency.code, 28.dp)
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("1 $code", color = Ink.Text, fontSize = 15.sp)
+                        Text("1 USD = ${CountMath.rate(CountMath.rateFor(code, rates, manual))} $code",
+                             color = Ink.Text, fontSize = 15.sp)
                         Text(
-                            text = (if (isManual) "manual" else "live") +
-                                " · ${CountMath.rate(CountMath.rateFor(code, rates, manual))}",
+                            text = if (isManual) "manual rate" else "market rate",
                             color = if (isManual) Ink.Amber else Ink.Muted,
                             fontSize = 11.5.sp,
                         )
