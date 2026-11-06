@@ -19,12 +19,14 @@ object Sfx {
     private var soundId = 0
     private var loaded = false
     private var enabled = true
-    private var systemEnabled = true
 
     fun init(context: Context) {
         if (pool != null) return
+        // MEDIA, not ASSISTANCE_SONIFICATION: the sonification usage is muted by Android whenever
+        // the phone's own "Touch sounds" switch is off (the default on most phones), which made the
+        // app silent. A media-stream tick is audible on its own and still respects media volume.
         val attributes = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+            .setUsage(AudioAttributes.USAGE_MEDIA)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
         val created = SoundPool.Builder()
@@ -41,14 +43,9 @@ object Sfx {
         enabled = value
     }
 
-    /** The phone's Settings › Sound › Touch sounds switch; the app must not shout over it. */
-    fun setSystemEnabled(value: Boolean) {
-        systemEnabled = value
-    }
-
     fun click() {
-        if (!enabled || !systemEnabled || !loaded) return
+        if (!enabled) return
         // A quiet tick: it should report the touch, not announce the app.
-        pool?.play(soundId, 0.55f, 0.55f, 1, 0, 1f)
+        pool?.play(soundId, 0.6f, 0.6f, 1, 0, 1f)
     }
 }

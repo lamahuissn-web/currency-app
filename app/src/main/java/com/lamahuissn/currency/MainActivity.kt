@@ -1,7 +1,6 @@
 package com.lamahuissn.currency
 
 import android.os.Bundle
-import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -25,7 +24,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lamahuissn.currency.data.CurrencyCatalog
 import com.lamahuissn.currency.ui.AddCurrencyScreen
@@ -56,16 +54,10 @@ private fun Root(viewModel: AppViewModel = viewModel()) {
     val convert by viewModel.convert.collectAsState()
     val chart by viewModel.chart.collectAsState()
 
-    val context = LocalContext.current
-    // The phone's own Settings › Sound › Touch sounds switch wins over the app's menu.
-    val systemTouchSounds = remember {
-        runCatching {
-            Settings.System.getInt(context.contentResolver, Settings.System.SOUND_EFFECTS_ENABLED, 1) == 1
-        }.getOrDefault(true)
-    }
-    LaunchedEffect(convert.soundOn, systemTouchSounds) {
+    // Only the app's own switch decides now: gating on the phone's "Touch sounds" setting is what
+    // silenced the tick, because that switch is off by default.
+    LaunchedEffect(convert.soundOn) {
         Sfx.setEnabled(convert.soundOn)
-        Sfx.setSystemEnabled(systemTouchSounds)
     }
 
     var tab by remember { mutableStateOf(NavTab.Convert) }
