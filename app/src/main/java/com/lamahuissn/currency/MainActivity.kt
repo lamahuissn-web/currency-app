@@ -24,6 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lamahuissn.currency.data.CurrencyCatalog
 import com.lamahuissn.currency.ui.AddCurrencyScreen
@@ -47,6 +48,15 @@ class MainActivity : ComponentActivity() {
                 Root()
             }
         }
+    }
+
+    /**
+     * Coming back to the app re-reads gold and silver, because those are the two numbers that move
+     * during the day. The same instance the Compose tree uses, so the list updates in place.
+     */
+    override fun onResume() {
+        super.onResume()
+        ViewModelProvider(this)[AppViewModel::class.java].refreshMetals()
     }
 }
 

@@ -80,6 +80,14 @@ class MetalsTest {
     }
 
     @Test
+    fun `a price counts as live for one minute`() {
+        assertTrue(Metals.isLive(0L))
+        assertTrue(Metals.isLive(59_000L))
+        assertFalse("a minute old is a quote, not a live price", Metals.isLive(61_000L))
+        assertFalse("a clock that went backwards must not read as live", Metals.isLive(-1L))
+    }
+
+    @Test
     fun `only the metals with a feed are treated as metals`() {
         assertTrue(Metals.isMetal("XAU"))
         assertTrue(Metals.isMetal("XAG"))

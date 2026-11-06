@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,10 +35,12 @@ fun MetalsSheet(
     code: String,
     rates: Map<String, Double>,
     updatedAt: Long,
+    metalsAt: Long,
     onDismiss: () -> Unit,
 ) {
     val ounce = Metals.ounceUsd(rates[code] ?: 0.0)
     val isGold = code == "XAU"
+    val live = metalsAt > 0L && Metals.isLive(System.currentTimeMillis() - metalsAt)
 
     Box(
         Modifier
@@ -71,12 +75,26 @@ fun MetalsSheet(
                             fontWeight = FontWeight.ExtraBold,
                             letterSpacing = (-1).sp,
                         )
-                        Text(
-                            text = "per troy ounce · USD" +
-                                if (updatedAt > 0) " · ${CountScreenTime.format(updatedAt)}" else "",
-                            color = Color(0xFF93BBA6),
-                            fontSize = 11.sp,
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (live) {
+                                Box(Modifier.size(6.dp).clip(CircleShape).background(Ink.Green))
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    "LIVE",
+                                    color = Ink.Green,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 0.8.sp,
+                                )
+                                Spacer(Modifier.width(6.dp))
+                            }
+                            Text(
+                                text = "per troy ounce · USD" +
+                                    if (updatedAt > 0) " · ${CountScreenTime.format(updatedAt)}" else "",
+                                color = Color(0xFF93BBA6),
+                                fontSize = 11.sp,
+                            )
+                        }
                     }
                     Box(
                         Modifier

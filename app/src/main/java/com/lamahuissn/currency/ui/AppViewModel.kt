@@ -29,6 +29,8 @@ data class ConvertUi(
     /** Units of each currency per 1 US dollar — the one table every figure is derived from. */
     val usdTo: Map<String, Double> = emptyMap(),
     val updatedAt: Long = 0L,
+    /** When the metals were last read — they move intraday, the fiat table does not. */
+    val metalsAt: Long = 0L,
     val loading: Boolean = false,
     val error: String? = null,
 ) {
@@ -112,7 +114,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 val now = System.currentTimeMillis()
                 prefs.cachedRates = table
                 prefs.updatedAt = now
-                _convert.update { it.copy(usdTo = table, updatedAt = now, loading = false, error = null) }
+                _convert.update {
+                    it.copy(
+                        usdTo = table,
+                        updatedAt = now,
+                        metalsAt = if (Metals.codes.any(table::containsKey)) now else it.metalsAt,
+                        loading = false,
+                        error = null,
+                    )
+                }
             }.onFailure { failure ->
                 _convert.update {
                     it.copy(
@@ -121,6 +131,33 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
             }
+        }
+    }
+
+    /**
+     * Re-read gold and silver only. Called when the app comes to the front, because that is the
+     * moment the owner looks at the number: two small requests, no timer, nothing in the background.
+     * A refresh less than fifteen seconds old is skipped, so a fast app switch does not spam the feed.
+     */
+    fun refreshMetals() {
+        // A full refresh already carries the metals; do not race it.
+        if (_convert.value.loading) return
+        val now = System.currentTimeMillis()
+        if (now - _convert.value.metalsAt < 15_000L) return
+        viewModelScope.launch {
+            val metals = withContext(Dispatchers.IO) {
+                runCatching { client.metalsPerUsd() }.getOrDefault(emptyMap())
+            }
+            if (metals.isEmpty()) {
+                // The feed did not answer: keep the last prices and leave their timestamp alone, so
+                // the sheet keeps telling the truth about how old the number is.
+                _convert.update { it.copy(metalsAt = _convert.value.metalsAt) }
+                return@launch
+            }
+            val at = System.currentTimeMillis()
+            val merged = _convert.value.usdTo + metals
+            prefs.cachedRates = merged
+            _convert.update { it.copy(usdTo = merged, metalsAt = at) }
         }
     }
 

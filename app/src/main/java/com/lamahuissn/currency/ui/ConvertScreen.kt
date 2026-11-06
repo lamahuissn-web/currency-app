@@ -371,7 +371,8 @@ fun ConvertScreen(
             MetalsSheet(
                 code = code,
                 rates = state.usdTo,
-                updatedAt = state.updatedAt,
+                updatedAt = if (state.metalsAt > 0) state.metalsAt else state.updatedAt,
+                metalsAt = state.metalsAt,
                 onDismiss = { metalFor = null },
             )
         }

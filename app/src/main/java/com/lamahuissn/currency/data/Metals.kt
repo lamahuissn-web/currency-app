@@ -37,6 +37,9 @@ object Metals {
     /** Units of metal per 1 USD — how the app's one table stores an ounce price. */
     fun perUsd(ounceUsd: Double): Double = if (ounceUsd > 0.0) 1.0 / ounceUsd else 0.0
 
+    /** A price this fresh is worth calling live; older than a minute is just "as of HH:mm". */
+    fun isLive(ageMs: Long): Boolean = ageMs in 0..60_000L
+
     /** The ounce price back out of the table. */
     fun ounceUsd(perUsd: Double): Double = if (perUsd > 0.0) 1.0 / perUsd else 0.0
 
