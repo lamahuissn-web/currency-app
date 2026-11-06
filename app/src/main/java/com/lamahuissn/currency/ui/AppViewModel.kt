@@ -1,0 +1,238 @@
+package com.lamahuissn.currency.ui
+
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.lamahuissn.currency.data.CurrencyCatalog
+import com.lamahuissn.currency.data.Point
+import com.lamahuissn.currency.data.Prefs
+import com.lamahuissn.currency.data.RatesClient
+import com.lamahuissn.currency.data.orderRows
+import com.lamahuissn.currency.data.togglePin as togglePinCode
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.Calendar
+
+data class ConvertUi(
+    val base: String = Prefs.DEFAULT_BASE,
+    val amount: Double = 1.0,
+    val targets: List<String> = Prefs.DEFAULT_TARGETS,
+    val pinned: List<String> = emptyList(),
+    /** Units of each currency per 1 US dollar — the one table every figure is derived from. */
+    val usdTo: Map<String, Double> = emptyMap(),
+    val updatedAt: Long = 0L,
+    val loading: Boolean = false,
+    val error: String? = null,
+) {
+    fun rate(from: String, to: String): Double? {
+        if (from == to) return 1.0
+        val a = usdTo[from] ?: return null
+        val b = usdTo[to] ?: return null
+        if (a == 0.0) return null
+        // 1 unit of `from` is (1/a) dollars, and each dollar is b units of `to`.
+        return b / a
+    }
+
+    fun converted(code: String): Double? = rate(base, code)?.times(amount)
+
+    /** What the list draws: pinned first, never the base itself, never the same code twice. */
+    val rows: List<String> get() = orderRows(base, targets, pinned)
+}
+
+data class ChartUi(
+    val base: String = "EUR",
+    val quote: String = "USD",
+    val period: String = "3M",
+    val points: List<Point> = emptyList(),
+    val loading: Boolean = false,
+    val error: String? = null,
+) {
+    val first: Double? get() = points.firstOrNull()?.value
+    val last: Double? get() = points.lastOrNull()?.value
+}
+
+class AppViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val prefs = Prefs(application)
+    private val client = RatesClient()
+
+    private val _convert = MutableStateFlow(
+        ConvertUi(
+            base = prefs.base,
+            amount = prefs.amount,
+            targets = prefs.targets,
+            pinned = prefs.pinned,
+            usdTo = prefs.cachedRates,
+            updatedAt = prefs.updatedAt,
+        )
+    )
+    val convert: StateFlow<ConvertUi> = _convert.asStateFlow()
+
+    private val _chart = MutableStateFlow(
+        ChartUi(base = prefs.chartBase, quote = prefs.chartQuote, period = prefs.chartPeriod)
+    )
+    val chart: StateFlow<ChartUi> = _chart.asStateFlow()
+
+    init {
+        refresh()
+        loadChart()
+    }
+
+    fun refresh() {
+        if (_convert.value.loading) return
+        _convert.update { it.copy(loading = true, error = null) }
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    // The fiat table is what the list is built on; a crypto failure must not blank it.
+                    val fiat = client.fiatPerUsd()
+                    val crypto = runCatching { client.cryptoPerUsd() }.getOrDefault(emptyMap())
+                    fiat + crypto
+                }
+            }
+            result.onSuccess { table ->
+                val now = System.currentTimeMillis()
+                prefs.cachedRates = table
+                prefs.updatedAt = now
+                _convert.update { it.copy(usdTo = table, updatedAt = now, loading = false, error = null) }
+            }.onFailure { failure ->
+                _convert.update {
+                    it.copy(
+                        loading = false,
+                        error = if (it.usdTo.isEmpty()) failure.message ?: "No connection" else null,
+                    )
+                }
+            }
+        }
+    }
+
+    fun setBaseAndAmount(code: String, amount: Double) {
+        prefs.base = code
+        prefs.amount = amount
+        _convert.update { it.copy(base = code, amount = amount) }
+    }
+
+    fun setBase(code: String) {
+        prefs.base = code
+        _convert.update { it.copy(base = code) }
+    }
+
+    fun setAmount(amount: Double) {
+        prefs.amount = amount
+        _convert.update { it.copy(amount = amount) }
+    }
+
+    fun addTarget(code: String) {
+        _convert.update { state ->
+            if (state.targets.contains(code)) state
+            else {
+                val next = state.targets + code
+                prefs.targets = next
+                state.copy(targets = next)
+            }
+        }
+    }
+
+    fun removeTarget(code: String) {
+        _convert.update { state ->
+            val next = state.targets.filterNot { it == code }
+            prefs.targets = next
+            state.copy(targets = next)
+        }
+    }
+
+    fun togglePin(code: String) {
+        val next = togglePinCode(_convert.value.pinned, code)
+        prefs.pinned = next
+        _convert.update { it.copy(pinned = next) }
+    }
+
+    fun resetTargets() {
+        val next = Prefs.DEFAULT_TARGETS
+        prefs.targets = next
+        _convert.update { it.copy(targets = next) }
+    }
+
+    fun sortTargets(byValue: Boolean) {
+        val state = _convert.value
+        val next = if (!byValue) {
+            state.targets.sorted()
+        } else {
+            state.targets.sortedByDescending { state.converted(it) ?: 0.0 }
+        }
+        prefs.targets = next
+        _convert.update { it.copy(targets = next) }
+    }
+
+    fun setChartPair(base: String, quote: String) {
+        prefs.chartBase = base
+        prefs.chartQuote = quote
+        _chart.update { it.copy(base = base, quote = quote) }
+        loadChart()
+    }
+
+    fun swapChartPair() {
+        val state = _chart.value
+        setChartPair(state.quote, state.base)
+    }
+
+    fun setChartPeriod(period: String) {
+        prefs.chartPeriod = period
+        _chart.update { it.copy(period = period) }
+        loadChart()
+    }
+
+    fun loadChart() {
+        val state = _chart.value
+        _chart.update { it.copy(loading = true, error = null) }
+        viewModelScope.launch {
+            val points = withContext(Dispatchers.IO) {
+                runCatching { fetchSeries(state.base, state.quote, state.period) }
+            }
+            val fresh = _chart.value
+            // A slower answer for a pair the owner already moved away from must not overwrite it.
+            if (fresh.base != state.base || fresh.quote != state.quote || fresh.period != state.period) {
+                return@launch
+            }
+            points.onSuccess { series ->
+                _chart.update {
+                    it.copy(
+                        points = series,
+                        loading = false,
+                        error = if (series.isEmpty()) "No published series for this pair" else null,
+                    )
+                }
+            }.onFailure { failure ->
+                _chart.update { it.copy(points = emptyList(), loading = false, error = failure.message ?: "No connection") }
+            }
+        }
+    }
+
+    private fun fetchSeries(base: String, quote: String, period: String): List<Point> {
+        val days = daysFor(period)
+        if (CurrencyCatalog.cryptoIds.containsKey(base)) {
+            return client.cryptoHistory(base, quote, days)
+        }
+        val calendar = Calendar.getInstance()
+        val end = calendar.time
+        calendar.add(Calendar.DAY_OF_YEAR, -days)
+        val start = calendar.time
+        val iso = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+        return client.fiatHistory(base, quote, iso.format(start), iso.format(end))
+    }
+
+    private fun daysFor(period: String): Int = when (period) {
+        "1D" -> 7      // the ECB publishes one point per working day
+        "1W" -> 7
+        "1M" -> 30
+        "3M" -> 90
+        "6M" -> 180
+        "1Y" -> 365
+        else -> 730
+    }
+}

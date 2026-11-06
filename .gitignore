@@ -1,0 +1,19 @@
+# Gradle / Android build output
+.gradle/
+build/
+app/build/
+*.iml
+.idea/
+.kotlin/
+captures/
+local.properties
+dist/
+*.apk
+*.aab
+*.jks
+*.keystore
+keystore.properties
+
+# OS noise
+.DS_Store
+Thumbs.db
