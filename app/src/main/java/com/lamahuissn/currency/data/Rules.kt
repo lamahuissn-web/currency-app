@@ -26,6 +26,28 @@ fun orderRows(base: String, targets: List<String>, pinned: List<String>): List<S
     return head + tail
 }
 
+/**
+ * Where each letter's section header sits in the add-currency list.
+ *
+ * The A–Z scrubber scrolls to these indices, so they must match the LazyColumn's item order exactly:
+ * every section contributes its header plus its rows, and everything rendered above the alphabet
+ * (the "My Location" block, the "Selected" block) is counted once in [leadingItems]. Getting this
+ * arithmetic wrong is what made tapping a letter appear to do nothing.
+ */
+fun sectionStartIndices(
+    letters: List<Char>,
+    rowsPerLetter: List<Int>,
+    leadingItems: Int,
+): Map<Char, Int> {
+    val out = LinkedHashMap<Char, Int>()
+    var cursor = leadingItems
+    letters.forEachIndexed { index, letter ->
+        out[letter] = cursor
+        cursor += 1 + (rowsPerLetter.getOrNull(index) ?: 0)
+    }
+    return out
+}
+
 /** Pinning is a toggle: the same gesture takes the row back down. */
 fun togglePin(pinned: List<String>, code: String): List<String> =
     if (pinned.contains(code)) pinned - code else pinned + code

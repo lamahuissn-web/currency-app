@@ -6,6 +6,7 @@ import com.lamahuissn.currency.data.formatValue
 import com.lamahuissn.currency.data.percentChange
 import com.lamahuissn.currency.data.groupDigits
 import com.lamahuissn.currency.data.orderRows
+import com.lamahuissn.currency.data.sectionStartIndices
 import com.lamahuissn.currency.data.togglePin
 import com.lamahuissn.currency.data.visibleTargets
 import org.junit.Assert.assertEquals
@@ -94,6 +95,24 @@ class FormatTest {
     fun `pinning is a toggle`() {
         assertEquals(listOf("LBP"), togglePin(emptyList(), "LBP"))
         assertEquals(emptyList<String>(), togglePin(listOf("LBP"), "LBP"))
+    }
+
+    @Test
+    fun `the scrubber's letter indices match the list order`() {
+        // Nothing above the alphabet: A's header is the first item.
+        assertEquals(
+            mapOf('A' to 0, 'B' to 5, 'C' to 8),
+            sectionStartIndices(listOf('A', 'B', 'C'), listOf(4, 2, 1), leadingItems = 0),
+        )
+        // A "My Location" block (2 items) plus a "Selected" block (header + 2 rows) = 5 items first.
+        val withLeading = sectionStartIndices(listOf('A', 'B'), listOf(3, 4), leadingItems = 5)
+        assertEquals(5, withLeading['A'])
+        assertEquals(5 + 1 + 3, withLeading['B'])
+        // A short rows list must not throw; a letter with no entry still gets its header slot.
+        assertEquals(
+            mapOf('A' to 0, 'B' to 3, 'C' to 4),
+            sectionStartIndices(listOf('A', 'B', 'C'), listOf(2), leadingItems = 0),
+        )
     }
 
     @Test

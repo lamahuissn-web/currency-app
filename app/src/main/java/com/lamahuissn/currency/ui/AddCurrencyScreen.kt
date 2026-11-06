@@ -3,17 +3,22 @@ package com.lamahuissn.currency.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -40,6 +45,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -47,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lamahuissn.currency.data.Currency
 import com.lamahuissn.currency.data.CurrencyCatalog
+import com.lamahuissn.currency.data.sectionStartIndices
 import kotlinx.coroutines.launch
 import java.util.Currency as JavaCurrency
 import java.util.Locale
@@ -97,12 +104,15 @@ fun AddCurrencyScreen(
     val sections = listed.groupBy { it.initial }.toSortedMap()
 
     // Item index of each section header inside the list, so the scrubber can jump to it exactly.
-    var cursor = (if (localShown) 2 else 0) + (if (chosen.isNotEmpty()) 1 + chosen.size else 0)
-    val sectionIndex = LinkedHashMap<Char, Int>()
-    sections.forEach { (letter, rows) ->
-        sectionIndex[letter] = cursor
-        cursor += 1 + rows.size
-    }
+    // The leading count is everything drawn above the alphabet: the location block (header + row)
+    // and, when present, the "Selected" header plus one row per chosen currency.
+    val leadingItems = (if (localShown) 2 else 0) +
+        (if (chosen.isNotEmpty()) 1 + chosen.size else 0)
+    val sectionIndex = sectionStartIndices(
+        letters = sections.keys.toList(),
+        rowsPerLetter = sections.values.map { it.size },
+        leadingItems = leadingItems,
+    )
 
     Box(Modifier.fillMaxSize().background(Ink.Page)) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
@@ -211,39 +221,73 @@ fun AddCurrencyScreen(
                     }
                 }
 
-                // The A–Z scrubber gets its OWN strip, outside the list: it used to float on top of
-                // the rows and its letters landed on the selection ticks. Every letter takes an equal
-                // share of the height, so the column is evenly spaced and cannot overflow on a small
-                // screen however many sections there are.
+                // The A–Z scrubber owns its strip: outside the list (so it can never sit on a row or
+                // its tick), one equal cell per letter, and the WHOLE strip is one gesture surface —
+                // a tap or a finger dragged over it jumps to that letter, which is what a scrubber
+                // has to do. The letter under the finger lights up, so a touch always shows a result.
                 if (sections.size > 2) {
+                    val letters = sections.keys.toList()
+                    var stripHeight by remember { mutableStateOf(0f) }
+                    var activeLetter by remember { mutableStateOf<Char?>(null) }
+
+                    fun jumpTo(y: Float) {
+                        if (letters.isEmpty() || stripHeight <= 0f) return
+                        val cell = stripHeight / letters.size
+                        val slot = (y / cell).toInt().coerceIn(0, letters.size - 1)
+                        val letter = letters[slot]
+                        activeLetter = letter
+                        val target = sectionIndex[letter] ?: return
+                        scope.launch {
+                            val count = listState.layoutInfo.totalItemsCount
+                            val safe = if (count > 0) target.coerceIn(0, count - 1) else target
+                            listState.animateScrollToItem(safe)
+                        }
+                    }
+
                     Column(
                         modifier = Modifier
-                            .width(24.dp)
+                            .width(28.dp)
                             .fillMaxHeight()
-                            .padding(vertical = 2.dp),
-                        verticalArrangement = Arrangement.Top,
+                            .padding(vertical = 4.dp)
+                            .onSizeChanged { stripHeight = it.height.toFloat() }
+                            .pointerInput(letters) {
+                                detectTapGestures { offset -> jumpTo(offset.y) }
+                            }
+                            .pointerInput(letters) {
+                                detectVerticalDragGestures(
+                                    onDragStart = { offset -> jumpTo(offset.y) },
+                                    onDragEnd = { activeLetter = null },
+                                    onDragCancel = { activeLetter = null },
+                                    onVerticalDrag = { change, _ ->
+                                        jumpTo(change.position.y)
+                                        change.consume()
+                                    },
+                                )
+                            },
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        sections.keys.forEach { letter ->
+                        letters.forEach { letter ->
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .fillMaxWidth()
-                                    .pointerInput(letter) {
-                                        detectTapGestures {
-                                            val target = sectionIndex[letter] ?: return@detectTapGestures
-                                            scope.launch { listState.scrollToItem(target) }
-                                        }
-                                    },
+                                    .fillMaxWidth(),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Text(
-                                    text = letter.toString(),
-                                    color = Ink.Green,
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(15.dp)
+                                        .clip(CircleShape)
+                                        .background(if (activeLetter == letter) Ink.Green else Color.Transparent),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(
+                                        text = letter.toString(),
+                                        color = if (activeLetter == letter) Color.White else Ink.Green,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                    )
+                                }
                             }
                         }
                     }
@@ -253,7 +297,9 @@ fun AddCurrencyScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .navigationBarsPadding()
+                    // The keyboard is a window inset, not a resize: with edge-to-edge on, the search
+                    // bar has to lift itself above the IME or it sits under the keys while typing.
+                    .windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))
                     .padding(horizontal = 16.dp, vertical = 10.dp)
                     .height(48.dp)
                     .clip(RoundedCornerShape(24.dp))
