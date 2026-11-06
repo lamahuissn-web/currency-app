@@ -51,12 +51,18 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Coming back to the app re-reads gold and silver, because those are the two numbers that move
-     * during the day. The same instance the Compose tree uses, so the list updates in place.
+     * While the app is on screen, gold and silver tick live — those are the two numbers that move
+     * during the day. The same instance the Compose tree uses, so the list updates in place; the
+     * ticker is cancelled in onPause, so a pocketed phone polls nothing.
      */
     override fun onResume() {
         super.onResume()
-        ViewModelProvider(this)[AppViewModel::class.java].refreshMetals()
+        ViewModelProvider(this)[AppViewModel::class.java].startMetalsTicker()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        ViewModelProvider(this)[AppViewModel::class.java].stopMetalsTicker()
     }
 }
 

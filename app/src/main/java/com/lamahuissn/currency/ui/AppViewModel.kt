@@ -12,6 +12,9 @@ import com.lamahuissn.currency.data.moveItem
 import com.lamahuissn.currency.data.orderRows
 import com.lamahuissn.currency.data.togglePin as togglePinCode
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -65,6 +68,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private val prefs = Prefs(application)
     private val client = RatesClient()
+
+    private var metalsJob: Job? = null
+    private var metalsInFlight = false
 
     private val _convert = MutableStateFlow(
         ConvertUi(
@@ -135,18 +141,24 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Re-read gold and silver only. Called when the app comes to the front, because that is the
-     * moment the owner looks at the number: two small requests, no timer, nothing in the background.
-     * A refresh less than fifteen seconds old is skipped, so a fast app switch does not spam the feed.
+     * Re-read gold and silver only — two small requests. A refresh less than [METALS_INTERVAL_MS] old
+     * is skipped unless [force] is set, so overlapping calls cannot stack up on the feed.
      */
-    fun refreshMetals() {
+    fun refreshMetals(force: Boolean = false) {
         // A full refresh already carries the metals; do not race it.
         if (_convert.value.loading) return
         val now = System.currentTimeMillis()
-        if (now - _convert.value.metalsAt < 15_000L) return
+        if (!force && now - _convert.value.metalsAt < METALS_INTERVAL_MS) return
+        // A slow network must not stack requests on the feed: one metal call at a time.
+        if (metalsInFlight) return
+        metalsInFlight = true
         viewModelScope.launch {
-            val metals = withContext(Dispatchers.IO) {
-                runCatching { client.metalsPerUsd() }.getOrDefault(emptyMap())
+            val metals = try {
+                withContext(Dispatchers.IO) {
+                    runCatching { client.metalsPerUsd() }.getOrDefault(emptyMap())
+                }
+            } finally {
+                metalsInFlight = false
             }
             if (metals.isEmpty()) {
                 // The feed did not answer: keep the last prices and leave their timestamp alone, so
@@ -159,6 +171,27 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             prefs.cachedRates = merged
             _convert.update { it.copy(usdTo = merged, metalsAt = at) }
         }
+    }
+
+    /**
+     * The live feed, while the app is on screen: gold and silver re-read every [METALS_INTERVAL_MS]
+     * because those are the numbers that move during the day. Started on resume and cancelled on
+     * pause, so nothing is polled while the phone is in a pocket — and nothing keeps running after
+     * the screen goes away.
+     */
+    fun startMetalsTicker() {
+        if (metalsJob?.isActive == true) return
+        metalsJob = viewModelScope.launch {
+            while (isActive) {
+                refreshMetals(force = true)
+                delay(METALS_INTERVAL_MS)
+            }
+        }
+    }
+
+    fun stopMetalsTicker() {
+        metalsJob?.cancel()
+        metalsJob = null
     }
 
     fun setBaseAndAmount(code: String, amount: Double) {
@@ -301,5 +334,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         "6M" -> 180
         "1Y" -> 365
         else -> 730
+    }
+
+    companion object {
+        /** Fifteen seconds: fast enough to watch, slow enough not to lean on a free feed. */
+        const val METALS_INTERVAL_MS = 15_000L
     }
 }
