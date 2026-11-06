@@ -14,6 +14,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -51,7 +52,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -61,6 +64,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lamahuissn.currency.data.Metals
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -68,6 +72,11 @@ import kotlin.math.roundToInt
 /** A circular flag. Flags are the phone's own emoji, clipped so every row starts the same width. */
 @Composable
 fun FlagDot(flag: String, code: String, size: Dp = 36.dp) {
+    // Gold and silver have no flag: they get an ingot drawn in their own metal instead.
+    if (Metals.isMetal(code)) {
+        MetalDot(code = code, size = size)
+        return
+    }
     Box(
         modifier = Modifier
             .size(size)
@@ -357,6 +366,52 @@ fun RoundButton(
     ) { content() }
 }
 
+
+/**
+ * The mark for gold and silver: a bullion bar drawn in its own metal, so the row reads as bullion at
+ * a glance instead of showing a blank flag. Gold is warm yellow, silver is cool grey, both with a
+ * top-face highlight — small enough that the shape carries the meaning, not the detail.
+ */
+@Composable
+fun MetalDot(code: String, size: Dp = 36.dp) {
+    val gold = code == "XAU"
+    val top = if (gold) Color(0xFFFFE08A) else Color(0xFFF7F7FA)
+    val body = if (gold) Color(0xFFE0AE2B) else Color(0xFFC9C9CF)
+    val deep = if (gold) Color(0xFF8A5E00) else Color(0xFF6E6E75)
+
+    Box(
+        modifier = Modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(Ink.SurfaceHigh),
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.size(size * 0.68f)) {
+            val w = this.size.width
+            val h = this.size.height
+
+            // The bar, seen from the front: a trapezoid, wider at the base.
+            val bar = Path().apply {
+                moveTo(w * 0.06f, h * 0.78f)
+                lineTo(w * 0.19f, h * 0.40f)
+                lineTo(w * 0.81f, h * 0.40f)
+                lineTo(w * 0.94f, h * 0.78f)
+                close()
+            }
+            drawPath(bar, Brush.verticalGradient(listOf(body, deep)))
+
+            // The lit top face, so it reads as metal rather than a grey wedge.
+            val face = Path().apply {
+                moveTo(w * 0.19f, h * 0.40f)
+                lineTo(w * 0.30f, h * 0.20f)
+                lineTo(w * 0.70f, h * 0.20f)
+                lineTo(w * 0.81f, h * 0.40f)
+                close()
+            }
+            drawPath(face, Brush.verticalGradient(listOf(top, body)))
+        }
+    }
+}
 
 /**
  * A row you move sideways: right pins, left deletes. The gesture is handled in one place so a swipe

@@ -4,10 +4,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,10 +24,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -44,6 +52,7 @@ import com.lamahuissn.currency.data.CurrencyCatalog
 import com.lamahuissn.currency.data.Metals
 import com.lamahuissn.currency.data.badgeText
 import com.lamahuissn.currency.data.visibleTargets
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -65,6 +74,20 @@ fun ConvertScreen(
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     var metalFor by remember { mutableStateOf<String?>(null) }
+
+    // A refresh that finished gets acknowledged: a green pill says so for a moment, so the owner
+    // sees that the tap did something even when the numbers moved by a cent.
+    var flash by remember { mutableStateOf(false) }
+    var seenUpdate by remember { mutableStateOf(state.updatedAt) }
+    LaunchedEffect(state.updatedAt) {
+        if (state.updatedAt > 0L && state.updatedAt != seenUpdate) {
+            seenUpdate = state.updatedAt
+            flash = true
+            Sfx.click()
+            delay(2200)
+            flash = false
+        }
+    }
     var reorderMode by remember { mutableStateOf(false) }
     var dragging by remember { mutableStateOf<String?>(null) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
@@ -130,6 +153,17 @@ fun ConvertScreen(
                 fontSize = 12.sp,
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp),
             )
+
+            if (state.loading && state.usdTo.isNotEmpty()) {
+                LinearProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .height(2.dp),
+                    color = Ink.Green,
+                    trackColor = Ink.Surface,
+                )
+            }
 
             if (reorderMode) {
                 LazyColumn(
@@ -303,6 +337,34 @@ fun ConvertScreen(
                     "Restore default list" to { menuOpen = false; onReset() },
                 ),
             )
+        }
+
+        AnimatedVisibility(
+            visible = flash,
+            enter = fadeIn(tween(160)) + slideInVertically(tween(220)) { it / 2 },
+            exit = fadeOut(tween(220)),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 96.dp),
+        ) {
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Ink.GreenDeep)
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("✓", color = Ink.Green, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Prices updated · " +
+                        SimpleDateFormat("HH:mm", Locale.US).format(Date(state.updatedAt)),
+                    color = Ink.Green,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
         }
 
         metalFor?.let { code ->
