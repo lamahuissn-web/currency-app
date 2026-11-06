@@ -30,6 +30,7 @@ import com.lamahuissn.currency.ui.AddCurrencyScreen
 import com.lamahuissn.currency.ui.AppViewModel
 import com.lamahuissn.currency.ui.ChartScreen
 import com.lamahuissn.currency.ui.ConvertScreen
+import com.lamahuissn.currency.ui.CountScreen
 import com.lamahuissn.currency.ui.CurrencyTheme
 import com.lamahuissn.currency.ui.KeypadSheet
 import com.lamahuissn.currency.ui.NavTab
@@ -99,13 +100,22 @@ private fun Root(viewModel: AppViewModel = viewModel()) {
                         if (selected == NavTab.Chart) viewModel.setChartPair(chart.base, chart.quote)
                     },
                 )
-            } else {
+            } else if (current == NavTab.Chart) {
                 ChartScreen(
                     state = chart,
                     onPeriod = { viewModel.setChartPeriod(it) },
                     onSwap = { viewModel.swapChartPair() },
                     onPickBase = { pickingPair = "base" },
                     onPickQuote = { pickingPair = "quote" },
+                    onSelectTab = { tab = it },
+                )
+            } else {
+                CountScreen(
+                    rates = convert.usdTo,
+                    // A failed refresh leaves the cached table in place: the Count tab must say so
+                    // rather than pretend a stale rate is today's.
+                    ratesLive = convert.error == null && convert.usdTo.isNotEmpty(),
+                    ratesUpdatedAt = convert.updatedAt,
                     onSelectTab = { tab = it },
                 )
             }

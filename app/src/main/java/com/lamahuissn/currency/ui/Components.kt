@@ -37,6 +37,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AttachMoney
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DragHandle
+import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.ShowChart
 import androidx.compose.material3.Icon
@@ -223,7 +224,7 @@ fun CurrencyRow(
 fun FloatingNav(selected: NavTab, onSelect: (NavTab) -> Unit) {
     Row(
         modifier = Modifier
-            .width(200.dp)
+            .width(296.dp)
             .height(64.dp)
             .clip(RoundedCornerShape(32.dp))
             .background(Ink.Surface)
@@ -236,6 +237,9 @@ fun FloatingNav(selected: NavTab, onSelect: (NavTab) -> Unit) {
         }
         NavItem("Chart", Icons.Rounded.ShowChart, selected == NavTab.Chart, Modifier.weight(1f)) {
             onSelect(NavTab.Chart)
+        }
+        NavItem("Count", Icons.Rounded.Payments, selected == NavTab.Count, Modifier.weight(1f)) {
+            onSelect(NavTab.Count)
         }
     }
 }
@@ -289,7 +293,7 @@ private fun NavItem(
     }
 }
 
-enum class NavTab { Convert, Chart }
+enum class NavTab { Convert, Chart, Count }
 
 /** The pill on the right of the Convert header: add a currency, or the list's small menu. */
 @Composable

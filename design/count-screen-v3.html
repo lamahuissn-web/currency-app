@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Count — mixed currencies (demo v3)</title>
+<style>
+  :root{
+    --bg:#000; --surface:#1C1C1E; --surface-high:#2C2C2E; --divider:#1A1A1C;
+    --green:#00D632; --text:#fff; --muted:#8E8E93; --red:#FF453A; --amber:#FFB020;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none}
+  html,body{margin:0; background:var(--bg)}
+  body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,system-ui,sans-serif;
+       color:var(--text); display:flex; justify-content:center}
+  .screen{width:100%; max-width:430px; background:var(--bg); display:flex; flex-direction:column;
+          padding:0 0 176px; position:relative; min-height:100vh}
+
+  header{display:flex; align-items:flex-start; gap:12px; padding:26px 16px 4px}
+  h1{margin:0; font-size:34px; line-height:1.05; font-weight:800; letter-spacing:-1.2px}
+  .sub{margin:6px 0 0; font-size:12px; color:var(--muted)}
+  .spacer{flex:1}
+  .pill{display:flex; align-items:center; gap:8px; height:38px; padding:0 14px; background:var(--surface);
+        border:0; border-radius:19px; color:var(--text); font:600 14px/1 inherit; cursor:pointer}
+  .pill .dot{width:22px; height:22px; border-radius:50%; background:var(--surface-high); display:grid;
+             place-items:center; font-size:9px; font-weight:800; color:var(--green)}
+  .pill .chev{color:var(--muted); font-size:11px}
+
+  /* ---------- sticky grand total ---------- */
+  .total{position:sticky; top:0; z-index:10; margin:12px 16px 4px; padding:16px 18px 14px;
+         border-radius:20px; background:linear-gradient(180deg,#0B2413 0%,#081A0E 100%);
+         border:1px solid #12301C}
+  .total .head{display:flex; align-items:center; gap:10px}
+  .total .label{font-size:11px; letter-spacing:1px; text-transform:uppercase; color:#6FAE85}
+  .total .actions{margin-left:auto; display:flex; gap:6px; margin:-8px -6px -8px 0}
+  .ghost{background:none; border:0; color:#A9CDBA; font:600 12.5px inherit; letter-spacing:.3px;
+         cursor:pointer; padding:10px 7px; border-radius:10px}
+  .total .amount{margin-top:4px; font-size:44px; line-height:1; font-weight:800; letter-spacing:-1.5px;
+                 font-variant-numeric:tabular-nums; display:flex; align-items:baseline; gap:8px}
+  .total .amount .cents{color:var(--green)}
+  .total .meta{margin-top:6px; font-size:12px; color:#93BBA6}
+
+  .breakdown{margin-top:10px; display:flex; flex-direction:column; gap:3px}
+  .bd{display:flex; align-items:baseline; gap:8px; font-size:12px; font-variant-numeric:tabular-nums}
+  .bd .code{color:#93BBA6; min-width:34px; font-weight:700; letter-spacing:.4px}
+  .bd .loc{color:#D7E7DD; flex:1; text-align:right}
+  .bd .eq{color:#6FAE85; width:14px; text-align:center}
+  .bd .usd{color:#fff; font-weight:600; width:84px; text-align:right}
+
+  .expected{margin-top:12px; padding-top:12px; border-top:1px solid #14351F;
+            display:flex; align-items:center; gap:10px}
+  .expected .ek{font-size:12px; color:#93BBA6}
+  .expected .ev{font-size:15px; font-weight:700; font-variant-numeric:tabular-nums; cursor:pointer}
+  .expected .ev.unset{color:#6C8F7B; font-weight:600}
+  .chip{display:inline-flex; align-items:center; gap:5px; height:26px; padding:0 11px;
+        border-radius:13px; font-size:11.5px; font-weight:700; letter-spacing:.2px}
+  .chip.ok{background:rgba(0,214,50,.16); color:var(--green)}
+  .chip.short{background:rgba(255,69,58,.16); color:var(--red)}
+  .chip.over{background:rgba(255,176,32,.16); color:var(--amber)}
+  .chip.none,.chip.stale{background:var(--surface-high); color:var(--muted)}
+  .chip.push{margin-left:auto}
+
+  /* ---------- currency sections ---------- */
+  .sec{margin:10px 16px 0; background:var(--surface); border-radius:18px; overflow:hidden}
+  .sec-head{display:flex; align-items:center; gap:10px; height:60px; padding:0 14px; cursor:pointer}
+  .badge{width:30px; height:30px; border-radius:50%; background:var(--surface-high); display:grid;
+         place-items:center; font-size:11px; font-weight:800; color:var(--green); letter-spacing:.3px}
+  .sec-head .code{font-size:16px; font-weight:700; letter-spacing:.3px}
+  .sec-head .note{font-size:11px; color:var(--muted); margin-top:1px}
+  .sec-head .sum{margin-left:auto; text-align:right}
+  .sec-head .sum .loc{font-size:15px; font-weight:700; font-variant-numeric:tabular-nums}
+  .sec-head .sum .usd{font-size:11px; color:var(--green); font-variant-numeric:tabular-nums; margin-top:1px}
+  .sec-head .chev{margin-left:8px; color:var(--muted); font-size:11px; width:14px; text-align:center;
+                  transition:transform .18s}
+  .sec.open .sec-head .chev{transform:rotate(180deg)}
+  .sec-body{display:none}
+  .sec.open .sec-body{display:block}
+
+  .row{display:flex; align-items:center; gap:10px; padding:0 14px; height:62px;
+       border-top:1px solid var(--divider)}
+  .den{display:flex; flex-direction:column; gap:1px; min-width:78px}
+  .den .note{font-size:17px; font-weight:700; font-variant-numeric:tabular-nums}
+  .den .kind{font-size:10px; color:var(--muted); letter-spacing:.5px; text-transform:uppercase}
+  .line{margin-left:auto; font-size:14px; font-weight:700; color:var(--green);
+        font-variant-numeric:tabular-nums; min-width:84px; text-align:right}
+  .line.zero{color:#56565C}
+  .stepper{display:flex; align-items:center; gap:2px; background:#141416; border-radius:22px; padding:4px}
+  .stepper button{width:38px; height:38px; border:0; border-radius:19px; background:#3A3A3E;
+                  color:#F2F2F7; font-size:20px; font-weight:600; line-height:1; cursor:pointer;
+                  display:grid; place-items:center; touch-action:manipulation}
+  .stepper button.off{opacity:.28}
+  .stepper button:active{transform:scale(.94)}
+  .stepper .plus{background:var(--green); color:#fff; transition:box-shadow .12s}
+  .stepper .plus.pressed{box-shadow:0 0 0 5px rgba(0,214,50,.25)}
+  .stepper .count{min-width:32px; text-align:center; font-size:15px; font-weight:700;
+                  font-variant-numeric:tabular-nums; cursor:pointer}
+  .sec .rate{padding:0 14px 12px; font-size:11px; color:var(--muted)}
+  .sec .rate b{color:#A9CDBA; font-weight:600}
+  .sec .rate .warn{color:var(--amber)}
+
+  .addCur{margin:12px 16px 0; height:54px; border-radius:18px; background:var(--surface); border:0;
+          color:var(--green); font:600 14px inherit; display:flex; align-items:center;
+          justify-content:center; gap:8px; cursor:pointer; width:calc(100% - 32px)}
+  .addCur span{font-size:18px; line-height:1}
+
+  .section-label{padding:18px 16px 2px; font-size:11px; letter-spacing:.8px; text-transform:uppercase;
+                 color:var(--muted); font-weight:600}
+
+  /* ---------- nav ---------- */
+  nav{position:fixed; bottom:22px; left:50%; transform:translateX(-50%); display:flex; gap:4px;
+      padding:6px; border-radius:34px; background:var(--surface); box-shadow:0 10px 40px rgba(0,0,0,.6); z-index:30}
+  .tab{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+       width:92px; height:56px; border-radius:28px; color:var(--text); font-size:11px; font-weight:600;
+       cursor:pointer}
+  .tab .ico{display:grid; place-items:center; height:18px}
+  .tab .ico svg{width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:1.9;
+                stroke-linecap:round; stroke-linejoin:round}
+  .tab.active{background:var(--surface-high); color:var(--green)}
+
+  /* ---------- sheets ---------- */
+  .sheet{position:fixed; inset:0; background:rgba(0,0,0,.65); display:none; align-items:flex-end; z-index:40}
+  .sheet.open{display:flex}
+  .card{width:100%; max-width:430px; margin:0 auto; background:var(--surface);
+        border-radius:22px 22px 0 0; padding:10px 0 24px; max-height:82vh; overflow-y:auto}
+  .card h3{margin:12px 18px 8px; font-size:12px; letter-spacing:.6px; text-transform:uppercase; color:var(--muted)}
+  .opt{display:flex; align-items:center; gap:12px; height:58px; padding:0 18px; font-size:16px;
+       cursor:pointer}
+  .opt .badge{width:28px; height:28px; font-size:10px}
+  .opt .meta{font-size:11.5px; color:var(--muted); margin-top:2px}
+  .opt .right{margin-left:auto; font-size:12px; color:var(--green); font-weight:700}
+  .opt .right.off{color:var(--muted); font-weight:600}
+  .opt.on{opacity:.45}
+
+  .kp-head{display:flex; align-items:flex-end; gap:12px; padding:6px 18px 2px}
+  .kp-head .what{font-size:13px; color:var(--muted)}
+  .kp-head .val{margin-left:auto; font-size:30px; font-weight:800; font-variant-numeric:tabular-nums}
+  .kp-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; padding:14px 18px 6px}
+  .kp-grid button{height:56px; border:0; border-radius:16px; background:var(--surface-high);
+                  color:var(--text); font-size:22px; font-weight:600; cursor:pointer}
+  .kp-grid button.go{background:var(--green); color:#fff; font-size:15px; font-weight:800}
+  .kp-grid button.dot{font-size:22px}
+
+  .item{display:flex; align-items:center; gap:12px; padding:12px 18px; border-bottom:1px solid var(--divider)}
+  .item .when{font-size:11px; color:var(--muted); margin-top:2px}
+  .item .amt{font-size:16px; font-weight:700; font-variant-numeric:tabular-nums}
+  .item .right{margin-left:auto; text-align:right}
+  .empty{padding:26px 18px; color:var(--muted); font-size:13px}
+  .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:96px; background:#2C2C2E;
+         color:#fff; font-size:12.5px; padding:10px 16px; border-radius:14px; opacity:0;
+         transition:opacity .2s; z-index:60; pointer-events:none}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="screen">
+
+  <header>
+    <div>
+      <h1>Count</h1>
+      <p class="sub" id="sub">Mixed bag · total in USD</p>
+    </div>
+    <div class="spacer"></div>
+    <button class="pill" id="ratesBtn">
+      <span class="dot" id="ratesDot">$</span>
+      <span id="ratesTxt">Rates live</span>
+      <span class="chev">›</span>
+    </button>
+  </header>
+
+  <section class="total">
+    <div class="head">
+      <div class="label">Total in USD</div>
+      <div class="actions">
+        <button class="ghost" id="historyBtn">History</button>
+        <button class="ghost" id="saveBtn">Save</button>
+        <button class="ghost" id="clearAll">Clear</button>
+      </div>
+    </div>
+    <div class="amount" id="total">$0<span class="cents">.00</span></div>
+    <div class="meta" id="meta">Add a currency and start counting</div>
+    <div class="breakdown" id="breakdown"></div>
+    <div class="expected">
+      <span class="ek">Expected</span>
+      <span class="ev unset" id="expectedVal">set amount</span>
+      <span class="chip none push" id="matchChip">—</span>
+    </div>
+  </section>
+
+  <div class="section-label">My bag</div>
+  <div id="sections"></div>
+  <button class="addCur" id="addCurBtn"><span>+</span> Add currency</button>
+
+  <nav>
+    <div class="tab"><span class="ico"><svg viewBox="0 0 24 24"><path d="M12 3v18M16.5 6.5H10a3 3 0 0 0 0 6h4a3 3 0 0 1 0 6H7"/></svg></span><span>Convert</span></div>
+    <div class="tab"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 5-7 4 4"/></svg></span><span>Chart</span></div>
+    <div class="tab active"><span class="ico"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="5" rx="1.4"/><rect x="4" y="13" width="16" height="5" rx="1.4"/></svg></span><span>Count</span></div>
+  </nav>
+</div>
+<div class="toast" id="toast"></div>
+
+<!-- sheets -->
+<div class="sheet" id="addSheet">
+  <div class="card">
+    <h3>Add a currency to the bag</h3>
+    <div id="addList"></div>
+  </div>
+</div>
+
+<div class="sheet" id="keypadSheet">
+  <div class="card">
+    <div class="kp-head">
+      <div class="what" id="kpWhat">Count</div>
+      <div class="val" id="kpVal">0</div>
+    </div>
+    <div class="kp-grid" id="kpGrid">
+      <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+      <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+      <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+      <button data-k="dot" class="dot">.</button><button data-k="0">0</button><button data-k="back">⌫</button>
+      <button data-k="ok" class="go" style="grid-column:span 3">Done</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet" id="historySheet">
+  <div class="card">
+    <h3>Saved counts</h3>
+    <div id="histList"></div>
+  </div>
+</div>
+
+<script>
+/* ---------- currency data (demo rates, same sources the app uses) ---------- */
+const CURRENCIES = {
+  USD:{ name:"US Dollar",        sym:"$",     toUsd:1,           notes:[100,50,20,10,5,1] },
+  GBP:{ name:"British Pound",    sym:"£",     toUsd:1.3477,      notes:[50,20,10,5] },
+  EUR:{ name:"Euro",             sym:"€",     toUsd:1.1223,      notes:[200,100,50,20,10,5] },
+  LBP:{ name:"Lebanese Pound",   sym:"ل.ل ",  toUsd:1/89550.64,  notes:[100000,50000,20000,10000,5000,1000] },
+  TRY:{ name:"Turkish Lira",     sym:"₺",     toUsd:1/50.063,    notes:[200,100,50,20,10,5] },
+  EGP:{ name:"Egyptian Pound",   sym:"E£",    toUsd:1/53.899,    notes:[200,100,50,20,10,5] },
+  AED:{ name:"UAE Dirham",       sym:"AED ",  toUsd:0.2723,      notes:[500,200,100,50,20,10,5] },
+  SAR:{ name:"Saudi Riyal",      sym:"SAR ",  toUsd:0.2666,      notes:[500,200,100,50,20,10,5] },
+  SYP:{ name:"Syrian Pound",     sym:"SYP ",  toUsd:1/13002,     notes:[5000,2000,1000,500,200,100] },
+  JOD:{ name:"Jordanian Dinar",  sym:"JOD ",  toUsd:1.41,        notes:[50,20,10,5,1] }
+};
+
+const STORE = "count-demo-v3";
+let saved = {};
+try { saved = JSON.parse(localStorage.getItem(STORE)) || {}; } catch(e) { saved = {}; }
+
+const state = {
+  bag: saved.bag || ["USD","GBP","LBP"],
+  counts: saved.counts || {},
+  rates: saved.rates || {},          // manual overrides: code -> toUsd
+  expected: saved.expected || 0,
+  history: saved.history || [],
+  collapsed: saved.collapsed || [],
+  stale: saved.stale || false
+};
+const persist = () => localStorage.setItem(STORE, JSON.stringify(state));
+
+const rateOf = c => state.rates[c] ?? CURRENCIES[c].toUsd;
+const localMoney = (v, c) => CURRENCIES[c].sym + Math.round(v).toLocaleString("en-US");
+const usd = v => "$" + v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const countsOf = c => (state.counts[c] = state.counts[c] || {});
+
+function currencyTotal(c) {
+  const n = countsOf(c);
+  let total = 0, notes = 0;
+  CURRENCIES[c].notes.forEach(d => { const k = n[d] || 0; total += d*k; notes += k; });
+  return { total, notes };
+}
+
+function grand() {
+  let totalUsd = 0, notes = 0;
+  state.bag.forEach(c => {
+    const t = currencyTotal(c);
+    totalUsd += t.total * rateOf(c);
+    notes += t.notes;
+  });
+  return { totalUsd, notes };
+}
+
+/* ---------- render ---------- */
+function render() {
+  const wrap = document.getElementById("sections");
+  wrap.innerHTML = "";
+
+  state.bag.forEach(code => {
+    const c = CURRENCIES[code], t = currencyTotal(code), n = countsOf(code);
+    const open = !state.collapsed.includes(code);
+    const sec = document.createElement("div");
+    sec.className = "sec" + (open ? " open" : "");
+    sec.dataset.code = code;
+
+    sec.innerHTML = `
+      <div class="sec-head" data-toggle="${code}">
+        <div class="badge">${code.slice(0,2)}</div>
+        <div>
+          <div class="code">${code}</div>
+          <div class="note">${c.name}${t.notes ? " · " + t.notes + " note" + (t.notes===1?"":"s") : ""}</div>
+        </div>
+        <div class="sum">
+          <div class="loc">${t.total ? localMoney(t.total, code) : "—"}</div>
+          <div class="usd">${t.total ? usd(t.total * rateOf(code)) : ""}</div>
+        </div>
+        <div class="chev">▾</div>
+      </div>
+      <div class="sec-body">
+        ${c.notes.map(d => {
+          const k = n[d] || 0;
+          return `<div class="row">
+            <div class="den">
+              <span class="note">${c.sym}${d.toLocaleString("en-US")}</span>
+              <span class="kind">banknote</span>
+            </div>
+            <div class="stepper">
+              <button class="${k===0?"off":""}" data-code="${code}" data-note="${d}" data-delta="-1">−</button>
+              <div class="count" data-edit="${code}:${d}">${k}</div>
+              <button class="plus" data-code="${code}" data-note="${d}" data-delta="1">+</button>
+            </div>
+            <div class="line ${k===0?"zero":""}">${k===0?"—":localMoney(d*k, code)}</div>
+          </div>`;
+        }).join("")}
+        <div class="rate">1 ${code} = <b>$${rateOf(code).toFixed(rateOf(code) < 0.001 ? 8 : 4)}</b>
+          ${state.rates[code] !== undefined
+            ? '· <span class="warn">manual rate</span> <a href="#" data-reset="' + code + '" style="color:#6FAE85">reset</a>'
+            : '· live'}${state.stale ? ' · <span class="warn">cached</span>' : ""}</div>
+      </div>`;
+    wrap.appendChild(sec);
+  });
+
+  const { totalUsd, notes } = grand();
+  const whole = Math.floor(totalUsd).toLocaleString("en-US");
+  const cents = (totalUsd - Math.floor(totalUsd)).toFixed(2).slice(1);
+  document.getElementById("total").innerHTML = `${whole}<span class="cents">${cents}</span>`;
+  document.getElementById("meta").textContent = notes === 0
+    ? "Add a currency and start counting"
+    : `${notes} note${notes===1?"":"s"} · ${state.bag.length} currenc${state.bag.length===1?"y":"ies"}${state.stale ? " · cached rates" : ""}`;
+
+  document.getElementById("breakdown").innerHTML = state.bag
+    .filter(code => currencyTotal(code).total > 0)
+    .map(code => {
+      const t = currencyTotal(code).total;
+      return `<div class="bd">
+        <span class="code">${code}</span>
+        <span class="loc">${localMoney(t, code)}</span>
+        <span class="eq">→</span>
+        <span class="usd">${usd(t * rateOf(code))}</span>
+      </div>`;
+    }).join("");
+
+  // expected / match, always in USD
+  const ev = document.getElementById("expectedVal");
+  const chip = document.getElementById("matchChip");
+  if (state.expected > 0) {
+    ev.textContent = usd(state.expected);
+    ev.classList.remove("unset");
+    const diff = totalUsd - state.expected;
+    chip.className = "chip push " + (Math.abs(diff) < 0.005 ? "ok" : diff < 0 ? "short" : "over");
+    chip.textContent = Math.abs(diff) < 0.005 ? "✓ Match"
+      : diff < 0 ? "Short " + usd(-diff) : "Over " + usd(diff);
+  } else {
+    ev.textContent = "set amount";
+    ev.classList.add("unset");
+    chip.className = "chip push none";
+    chip.textContent = "—";
+  }
+
+  document.getElementById("ratesDot").textContent = state.stale ? "!" : "$";
+  document.getElementById("ratesTxt").textContent = state.stale ? "Cached rates" : "Rates live";
+  persist();
+}
+
+/* ---------- interactions ---------- */
+let pressTimer = null, longFired = false;
+
+document.addEventListener("pointerdown", e => {
+  const btn = e.target.closest("button.plus[data-note]");
+  if (!btn) return;
+  longFired = false;
+  btn.classList.add("pressed");
+  pressTimer = setTimeout(() => {
+    longFired = true;
+    btn.classList.remove("pressed");
+    openKeypad(btn.dataset.code, Number(btn.dataset.note));
+  }, 420);
+});
+["pointerup","pointercancel","pointerleave"].forEach(ev =>
+  document.addEventListener(ev, () => {
+    clearTimeout(pressTimer);
+    document.querySelectorAll(".plus.pressed").forEach(b => b.classList.remove("pressed"));
+  })
+);
+
+document.addEventListener("click", e => {
+  const reset = e.target.closest("[data-reset]");
+  if (reset) { e.preventDefault(); delete state.rates[reset.dataset.reset]; render(); return; }
+
+  if (longFired) { longFired = false; return; }
+
+  const toggle = e.target.closest("[data-toggle]");
+  if (toggle) {
+    const code = toggle.dataset.toggle;
+    state.collapsed = state.collapsed.includes(code)
+      ? state.collapsed.filter(c => c !== code)
+      : [...state.collapsed, code];
+    render();
+    return;
+  }
+
+  const step = e.target.closest("button[data-note]");
+  if (step) {
+    const n = countsOf(step.dataset.code), d = Number(step.dataset.note);
+    n[d] = Math.max(0, (n[d] || 0) + Number(step.dataset.delta));
+    render();
+    return;
+  }
+
+  const edit = e.target.closest("[data-edit]");
+  if (edit) {
+    const [code, d] = edit.dataset.edit.split(":");
+    openKeypad(code, Number(d));
+  }
+});
+
+/* ---------- keypad ---------- */
+let kp = { mode:"count", code:null, note:null, buffer:"", replacing:true };
+
+function openKeypad(code, note) {
+  kp = { mode:"count", code, note, buffer:String(countsOf(code)[note] || 0), replacing:true };
+  paintKp();
+  document.getElementById("keypadSheet").classList.add("open");
+}
+function openExpected() {
+  kp = { mode:"expected", code:null, note:null, buffer: state.expected ? String(state.expected) : "", replacing:true };
+  paintKp();
+  document.getElementById("keypadSheet").classList.add("open");
+}
+function openRate(code) {
+  kp = { mode:"rate", code, note:null, buffer:String(rateOf(code)), replacing:true };
+  paintKp();
+  document.getElementById("keypadSheet").classList.add("open");
+}
+function paintKp() {
+  const t = document.getElementById("kpWhat");
+  if (kp.mode === "count")
+    t.textContent = `How many ${CURRENCIES[kp.code].sym}${kp.note.toLocaleString("en-US")} notes?`;
+  else if (kp.mode === "expected") t.textContent = "Expected amount · USD";
+  else t.textContent = `Manual rate · 1 ${kp.code} = ? USD`;
+  document.getElementById("kpVal").textContent = kp.buffer === "" ? "0" : kp.buffer;
+}
+
+document.getElementById("kpGrid").onclick = e => {
+  const b = e.target.closest("button[data-k]");
+  if (!b) return;
+  const k = b.dataset.k;
+  if (k === "back") { kp.buffer = kp.buffer.slice(0,-1); kp.replacing = false; }
+  else if (k === "ok") {
+    const v = Number(kp.buffer || 0);
+    if (kp.mode === "count") countsOf(kp.code)[kp.note] = v;
+    else if (kp.mode === "expected") state.expected = v;
+    else if (kp.mode === "rate" && v > 0) state.rates[kp.code] = v;
+    document.getElementById("keypadSheet").classList.remove("open");
+    render();
+    return;
+  } else if (kp.buffer.length < 12) {
+    if (k === "dot") { if (!kp.buffer.includes(".")) kp.buffer = (kp.buffer || "0") + "."; kp.replacing = false; }
+    else if (kp.replacing) { kp.buffer = k; kp.replacing = false; }
+    else kp.buffer = (kp.buffer === "0" ? "" : kp.buffer) + k;
+  }
+  paintKp();
+};
+
+document.getElementById("expectedVal").onclick = openExpected;
+
+/* ---------- add currency sheet ---------- */
+function openAdd() {
+  const list = document.getElementById("addList");
+  list.innerHTML = Object.keys(CURRENCIES).map(code => {
+    const inBag = state.bag.includes(code);
+    return `<div class="opt ${inBag ? "on" : ""}" data-pick="${code}">
+      <div class="badge">${code.slice(0,2)}</div>
+      <div>
+        <div>${CURRENCIES[code].name}</div>
+        <div class="meta">${code} · 1 ${code} = $${rateOf(code).toFixed(rateOf(code) < 0.001 ? 8 : 4)}</div>
+      </div>
+      <div class="right ${inBag ? "off" : ""}">${inBag ? "added" : "+ add"}</div>
+    </div>`;
+  }).join("");
+  document.getElementById("addSheet").classList.add("open");
+}
+
+document.getElementById("addCurBtn").onclick = openAdd;
+
+document.getElementById("addList").onclick = e => {
+  const opt = e.target.closest("[data-pick]");
+  if (!opt) return;
+  const code = opt.dataset.pick;
+  if (state.bag.includes(code)) state.bag = state.bag.filter(c => c !== code);
+  else state.bag = [...state.bag, code];
+  render();
+  openAdd();
+};
+
+/* ---------- clear / save / history ---------- */
+document.getElementById("clearAll").onclick = () => {
+  state.bag.forEach(c => state.counts[c] = {});
+  render();
+};
+
+document.getElementById("saveBtn").onclick = () => {
+  const { totalUsd, notes } = grand();
+  if (totalUsd <= 0.004) { toast("Nothing counted yet"); return; }
+  state.history.unshift({
+    at: new Date().toISOString(),
+    totalUsd, notes,
+    expected: state.expected,
+    parts: state.bag.map(c => ({ code:c, total: currencyTotal(c).total })).filter(p => p.total > 0)
+  });
+  state.history = state.history.slice(0, 40);
+  persist();
+  openHistory();
+};
+
+function openHistory() {
+  const list = document.getElementById("histList");
+  if (state.history.length === 0) {
+    list.innerHTML = `<div class="empty">No saved counts yet. Count some notes and tap Save.</div>`;
+  } else {
+    list.innerHTML = state.history.map(h => {
+      const when = new Date(h.at).toLocaleString("en-GB",
+        { day:"2-digit", month:"short", hour:"2-digit", minute:"2-digit" });
+      const diff = h.expected > 0 ? h.totalUsd - h.expected : null;
+      const chip = diff === null ? `<span class="chip none">no target</span>`
+        : Math.abs(diff) < 0.005 ? `<span class="chip ok">✓ Match</span>`
+        : diff < 0 ? `<span class="chip short">Short ${usd(-diff)}</span>`
+        : `<span class="chip over">Over ${usd(diff)}</span>`;
+      const parts = h.parts.map(p => `${p.code} ${localMoney(p.total, p.code)}`).join(" · ");
+      return `<div class="item">
+        <div>
+          <div class="amt">${usd(h.totalUsd)}</div>
+          <div class="when">${when} · ${h.notes} notes</div>
+          <div class="when">${parts}</div>
+        </div>
+        <div class="right">${chip}</div>
+      </div>`;
+    }).join("");
+  }
+  document.getElementById("historySheet").classList.add("open");
+}
+document.getElementById("historyBtn").onclick = openHistory;
+
+/* ---------- rates sheet: tap the pill to override a rate ---------- */
+document.getElementById("ratesBtn").onclick = () => {
+  const list = document.getElementById("addList");
+  document.querySelector("#addSheet h3").textContent = "Rates used (tap to override)";
+  list.innerHTML = state.bag.map(code => `<div class="opt" data-rate="${code}">
+      <div class="badge">${code.slice(0,2)}</div>
+      <div>
+        <div>1 ${code}</div>
+        <div class="meta">${state.rates[code] !== undefined ? "manual" : "live"} · $${rateOf(code).toFixed(rateOf(code) < 0.001 ? 8 : 4)}</div>
+      </div>
+      <div class="right">edit</div>
+    </div>`).join("") +
+    `<div class="opt" data-stale="1"><div class="badge">!</div>
+       <div><div>Simulate offline</div><div class="meta">show the cached-rate warning</div></div>
+       <div class="right">${state.stale ? "on" : "off"}</div></div>`;
+  list.onclick = e => {
+    const rateEl = e.target.closest("[data-rate]");
+    const staleEl = e.target.closest("[data-stale]");
+    if (staleEl) { state.stale = !state.stale; document.getElementById("addSheet").classList.remove("open"); render(); return; }
+    if (!rateEl) return;
+    document.getElementById("addSheet").classList.remove("open");
+    openRate(rateEl.dataset.rate);
+  };
+  document.getElementById("addSheet").classList.add("open");
+};
+
+/* ---------- misc ---------- */
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 1600);
+}
+
+document.querySelectorAll(".sheet").forEach(sheet => {
+  sheet.addEventListener("click", e => { if (e.target === sheet) sheet.classList.remove("open"); });
+});
+
+/* restore the add-sheet handler after the rates sheet swapped it */
+document.getElementById("addSheet").addEventListener("click", e => {
+  if (e.target.closest("[data-rate],[data-stale]")) return;
+});
+
+render();
+</script>
+</body>
+</html>
