@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.lamahuissn.currency.data.CurrencyCatalog
 import com.lamahuissn.currency.data.Point
+import com.lamahuissn.currency.data.Metals
 import com.lamahuissn.currency.data.Prefs
 import com.lamahuissn.currency.data.RatesClient
 import com.lamahuissn.currency.data.moveItem
@@ -82,6 +83,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     val chart: StateFlow<ChartUi> = _chart.asStateFlow()
 
     init {
+        // Gold and silver arrive as rows without the owner hunting for them, exactly once.
+        if (!prefs.metalsSeeded) {
+            val next = (prefs.targets + Metals.codes).distinct()
+            prefs.targets = next
+            prefs.metalsSeeded = true
+            _convert.update { it.copy(targets = next) }
+        }
         refresh()
         loadChart()
     }
@@ -95,7 +103,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     // The fiat table is what the list is built on; a crypto failure must not blank it.
                     val fiat = client.fiatPerUsd()
                     val crypto = runCatching { client.cryptoPerUsd() }.getOrDefault(emptyMap())
-                    fiat + crypto
+                    // Metals ride along: if their feed is down the currency list still fills.
+                    val metals = runCatching { client.metalsPerUsd() }.getOrDefault(emptyMap())
+                    fiat + crypto + metals
                 }
             }
             result.onSuccess { table ->

@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.lamahuissn.currency.BuildConfig
 import com.lamahuissn.currency.data.CurrencyCatalog
+import com.lamahuissn.currency.data.Metals
 import com.lamahuissn.currency.data.badgeText
 import com.lamahuissn.currency.data.visibleTargets
 import java.text.SimpleDateFormat
@@ -63,6 +64,7 @@ fun ConvertScreen(
     onSelectTab: (NavTab) -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
+    var metalFor by remember { mutableStateOf<String?>(null) }
     var reorderMode by remember { mutableStateOf(false) }
     var dragging by remember { mutableStateOf<String?>(null) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
@@ -222,6 +224,9 @@ fun ConvertScreen(
                             val converted = state.converted(code)
                             val pinned = state.pinned.contains(code)
                             val badge = when {
+                                // A metal is quoted by the ounce, so the row shows its price rather
+                                // than "1 USD = 0.000248 gold".
+                                Metals.isMetal(code) -> Metals.rowBadge(state.usdTo[code] ?: 0.0)
                                 converted != null -> badgeText(code, converted)
                                 state.loading -> null      // shimmer while the rates are on their way
                                 else -> "—"
@@ -231,7 +236,9 @@ fun ConvertScreen(
                                 onSwipeLeft = { onRemove(code) },
                                 pinned = pinned,
                                 modifier = Modifier.animateItem(),
-                                onClick = { onRowTap(code) },
+                                onClick = {
+                                    if (Metals.isMetal(code)) metalFor = code else onRowTap(code)
+                                },
                             ) {
                                 CurrencyRow(
                                     name = currency.name,
@@ -295,6 +302,15 @@ fun ConvertScreen(
                     "Refresh rates" to { menuOpen = false; onRefresh() },
                     "Restore default list" to { menuOpen = false; onReset() },
                 ),
+            )
+        }
+
+        metalFor?.let { code ->
+            MetalsSheet(
+                code = code,
+                rates = state.usdTo,
+                updatedAt = state.updatedAt,
+                onDismiss = { metalFor = null },
             )
         }
     }

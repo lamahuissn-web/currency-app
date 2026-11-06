@@ -16,6 +16,7 @@ data class Point(val at: Long, val value: Double)
  *   publishes (about thirty). A pair it does not publish is reported as unavailable rather than
  *   drawn from a guess.
  * - `api.coingecko.com` — crypto prices, both spot and historical.
+ * - `api.gold-api.com` — gold and silver spot by the troy ounce, no key.
  *
  * Parsing lives in the companion so it can be tested against captured bodies without a network.
  */
@@ -47,6 +48,20 @@ class RatesClient {
     fun cryptoPerUsd(): Map<String, Double> {
         val ids = CurrencyCatalog.cryptoIds.values.joinToString(",")
         return parseCrypto(get("https://api.coingecko.com/api/v3/simple/price?ids=$ids&vs_currencies=usd"))
+    }
+
+    /**
+     * Gold and silver, expressed like every other row: units of metal per 1 USD. A failed metal call
+     * returns an empty map, so an outage hides the metal rows instead of inventing a price.
+     */
+    fun metalsPerUsd(): Map<String, Double> {
+        val out = HashMap<String, Double>()
+        for (code in Metals.codes) {
+            val body = runCatching { get("https://api.gold-api.com/price/$code") }.getOrNull() ?: continue
+            val ounce = Metals.parseOunceUsd(body) ?: continue
+            out[code] = Metals.perUsd(ounce)
+        }
+        return out
     }
 
     /** Daily series of [quote] per 1 [base], from the ECB reference rates. Empty when unpublished. */

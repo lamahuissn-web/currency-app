@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lamahuissn.currency.data.Currency
 import com.lamahuissn.currency.data.CurrencyCatalog
+import com.lamahuissn.currency.data.Metals
 import com.lamahuissn.currency.data.sectionStartIndices
 import kotlinx.coroutines.launch
 import java.util.Currency as JavaCurrency
@@ -88,7 +89,8 @@ fun AddCurrencyScreen(
     val source = when (tab) {
         CatalogTab.All -> CurrencyCatalog.fiat + CurrencyCatalog.crypto
         CatalogTab.Crypto -> CurrencyCatalog.crypto
-        CatalogTab.Metal -> CurrencyCatalog.metals
+        // Only the metals with a free live feed; the rest would be a price we cannot fill.
+        CatalogTab.Metal -> CurrencyCatalog.metals.filter { Metals.isMetal(it.code) }
     }
     val filtered = source.filter { it.matches(query) }.sortedBy { it.name.lowercase() }
 
@@ -438,7 +440,7 @@ private fun EmptyNote(tab: CatalogTab, query: String) {
         Text(
             text = when {
                 query.isNotBlank() -> "Nothing matches \"$query\"."
-                tab == CatalogTab.Metal -> "Metals need a paid price feed (gold, silver, platinum), so this build does not carry them. Fiat and crypto are live."
+                tab == CatalogTab.Metal -> "Gold and silver are priced by the troy ounce. Tap one to add it to the list."
                 else -> "Nothing here yet."
             },
             color = Ink.Muted,

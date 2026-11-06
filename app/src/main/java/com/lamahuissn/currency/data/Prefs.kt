@@ -39,6 +39,11 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("soundOn", true)
         set(value) = sp.edit().putBoolean("soundOn", value).apply()
 
+    /** Set once, on the update that brought gold and silver into the list. */
+    var metalsSeeded: Boolean
+        get() = sp.getBoolean("metalsSeeded", false)
+        set(value) = sp.edit().putBoolean("metalsSeeded", value).apply()
+
     var updatedAt: Long
         get() = sp.getLong("updatedAt", 0L)
         set(value) = sp.edit().putLong("updatedAt", value).apply()
