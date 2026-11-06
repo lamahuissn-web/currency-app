@@ -5,6 +5,7 @@ import com.lamahuissn.currency.data.badgeText
 import com.lamahuissn.currency.data.formatValue
 import com.lamahuissn.currency.data.percentChange
 import com.lamahuissn.currency.data.groupDigits
+import com.lamahuissn.currency.data.moveItem
 import com.lamahuissn.currency.data.orderRows
 import com.lamahuissn.currency.data.sectionStartIndices
 import com.lamahuissn.currency.data.togglePin
@@ -89,6 +90,21 @@ class FormatTest {
         // A pin on the base, or on a currency no longer watched, is ignored.
         assertEquals(listOf("LBP", "EGP"), orderRows("USD", listOf("LBP", "EGP"), listOf("USD", "BTC")))
         assertEquals(listOf("LBP", "EGP"), orderRows("USD", listOf("LBP", "EGP"), emptyList()))
+    }
+
+    @Test
+    fun `moving a row lands it where the finger dropped it`() {
+        val list = listOf("LBP", "EGP", "TRY", "EUR")
+        // B dragged down onto C.
+        assertEquals(listOf("LBP", "TRY", "EGP", "EUR"), moveItem(list, "EGP", "TRY"))
+        // C dragged up onto B.
+        assertEquals(listOf("LBP", "TRY", "EGP", "EUR"), moveItem(list, "TRY", "EGP"))
+        // First to last and back.
+        assertEquals(listOf("EGP", "TRY", "EUR", "LBP"), moveItem(list, "LBP", "EUR"))
+        assertEquals(listOf("TRY", "LBP", "EGP", "EUR"), moveItem(list, "TRY", "LBP"))
+        // Unknown code or no movement leaves the list untouched.
+        assertEquals(list, moveItem(list, "USD", "LBP"))
+        assertEquals(list, moveItem(list, "LBP", "LBP"))
     }
 
     @Test

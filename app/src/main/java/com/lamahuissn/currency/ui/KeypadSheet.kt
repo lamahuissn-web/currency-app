@@ -181,6 +181,7 @@ private fun Keypad(
                             .border(1.dp, Color(0x1AFFFFFF), CircleShape)
                             .pointerInput(key) {
                                 detectTapGestures {
+                                    Sfx.click()
                                     when (key) {
                                         "⌫" -> onBackspace()
                                         else -> onDigit(key)
@@ -198,7 +199,12 @@ private fun Keypad(
                         .aspectRatio(1f)
                         .clip(CircleShape)
                         .background(Color(0x33000000))
-                        .pointerInput(quick.first) { detectTapGestures { onQuick(quick.second) } },
+                        .pointerInput(quick.first) {
+                            detectTapGestures {
+                                Sfx.click()
+                                onQuick(quick.second)
+                            }
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(quick.first, color = Ink.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold)

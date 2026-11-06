@@ -7,6 +7,7 @@ import com.lamahuissn.currency.data.CurrencyCatalog
 import com.lamahuissn.currency.data.Point
 import com.lamahuissn.currency.data.Prefs
 import com.lamahuissn.currency.data.RatesClient
+import com.lamahuissn.currency.data.moveItem
 import com.lamahuissn.currency.data.orderRows
 import com.lamahuissn.currency.data.togglePin as togglePinCode
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +24,7 @@ data class ConvertUi(
     val amount: Double = 1.0,
     val targets: List<String> = Prefs.DEFAULT_TARGETS,
     val pinned: List<String> = emptyList(),
+    val soundOn: Boolean = true,
     /** Units of each currency per 1 US dollar — the one table every figure is derived from. */
     val usdTo: Map<String, Double> = emptyMap(),
     val updatedAt: Long = 0L,
@@ -67,6 +69,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             amount = prefs.amount,
             targets = prefs.targets,
             pinned = prefs.pinned,
+            soundOn = prefs.soundOn,
             usdTo = prefs.cachedRates,
             updatedAt = prefs.updatedAt,
         )
@@ -144,6 +147,23 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             prefs.targets = next
             state.copy(targets = next)
         }
+    }
+
+    fun toggleSound() {
+        val next = !_convert.value.soundOn
+        prefs.soundOn = next
+        _convert.update { it.copy(soundOn = next) }
+    }
+
+    /**
+     * Moving a row while reordering. The pair is given by code, not by index, because the row the
+     * owner drags is filtered (the base is never listed) while the stored list is not — indices in
+     * the two lists do not line up.
+     */
+    fun moveTarget(fromCode: String, toCode: String) {
+        val list = moveItem(_convert.value.targets, fromCode, toCode)
+        prefs.targets = list
+        _convert.update { it.copy(targets = list) }
     }
 
     fun togglePin(code: String) {

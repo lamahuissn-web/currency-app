@@ -1,6 +1,7 @@
 package com.lamahuissn.currency
 
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -16,6 +17,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -23,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lamahuissn.currency.data.CurrencyCatalog
 import com.lamahuissn.currency.ui.AddCurrencyScreen
@@ -33,11 +36,13 @@ import com.lamahuissn.currency.ui.CurrencyTheme
 import com.lamahuissn.currency.ui.KeypadSheet
 import com.lamahuissn.currency.ui.NavTab
 import com.lamahuissn.currency.ui.PairPickerScreen
+import com.lamahuissn.currency.ui.Sfx
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        Sfx.init(this)
         setContent {
             CurrencyTheme {
                 Root()
@@ -50,6 +55,18 @@ class MainActivity : ComponentActivity() {
 private fun Root(viewModel: AppViewModel = viewModel()) {
     val convert by viewModel.convert.collectAsState()
     val chart by viewModel.chart.collectAsState()
+
+    val context = LocalContext.current
+    // The phone's own Settings › Sound › Touch sounds switch wins over the app's menu.
+    val systemTouchSounds = remember {
+        runCatching {
+            Settings.System.getInt(context.contentResolver, Settings.System.SOUND_EFFECTS_ENABLED, 1) == 1
+        }.getOrDefault(true)
+    }
+    LaunchedEffect(convert.soundOn, systemTouchSounds) {
+        Sfx.setEnabled(convert.soundOn)
+        Sfx.setSystemEnabled(systemTouchSounds)
+    }
 
     var tab by remember { mutableStateOf(NavTab.Convert) }
     var addingCurrency by remember { mutableStateOf(false) }
@@ -80,9 +97,11 @@ private fun Root(viewModel: AppViewModel = viewModel()) {
                     onAdd = { addingCurrency = true },
                     onRemove = { code -> viewModel.removeTarget(code) },
                     onPin = { code -> viewModel.togglePin(code) },
+                    onMove = { from, to -> viewModel.moveTarget(from, to) },
                     onSort = { byValue -> viewModel.sortTargets(byValue) },
                     onReset = { viewModel.resetTargets() },
                     onRefresh = { viewModel.refresh() },
+                    onToggleSound = { viewModel.toggleSound() },
                     onSelectTab = { selected ->
                         tab = selected
                         if (selected == NavTab.Chart) viewModel.setChartPair(chart.base, chart.quote)

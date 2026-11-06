@@ -36,6 +36,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AttachMoney
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.ShowChart
 import androidx.compose.material3.Icon
@@ -164,6 +165,7 @@ fun CurrencyRow(
     solid: Boolean,
     modifier: Modifier = Modifier,
     pinned: Boolean = false,
+    handle: Boolean = false,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
 ) {
@@ -173,7 +175,10 @@ fun CurrencyRow(
             .height(64.dp)
             .pointerInput(code, onLongClick) {
                 detectTapGestures(
-                    onTap = { onClick() },
+                    onTap = {
+                        Sfx.click()
+                        onClick()
+                    },
                     onLongPress = { onLongClick?.invoke() },
                 )
             }
@@ -199,7 +204,18 @@ fun CurrencyRow(
             Text(code.uppercase(), color = Ink.Muted, fontSize = 12.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.6.sp)
         }
         Spacer(Modifier.width(8.dp))
-        if (badge == null) ShimmerBadge() else ValueBadge(text = badge, solid = solid)
+        if (handle) {
+            Icon(
+                imageVector = Icons.Rounded.DragHandle,
+                contentDescription = "Drag to reorder",
+                tint = Ink.Muted,
+                modifier = Modifier.size(24.dp),
+            )
+        } else if (badge == null) {
+            ShimmerBadge()
+        } else {
+            ValueBadge(text = badge, solid = solid)
+        }
     }
 }
 
@@ -247,7 +263,12 @@ private fun NavItem(
             .fillMaxHeight()
             .clip(RoundedCornerShape(26.dp))
             .background(background)
-            .pointerInput(selected) { detectTapGestures { onClick() } },
+            .pointerInput(selected) {
+                detectTapGestures {
+                    Sfx.click()
+                    onClick()
+                }
+            },
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -283,13 +304,23 @@ fun HeaderActions(onAdd: () -> Unit, onMenu: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Box(
-            Modifier.size(24.dp).pointerInput(Unit) { detectTapGestures { onAdd() } },
+            Modifier.size(24.dp).pointerInput(Unit) {
+                detectTapGestures {
+                    Sfx.click()
+                    onAdd()
+                }
+            },
             contentAlignment = Alignment.Center,
         ) {
             Text("+", color = Ink.Text, fontSize = 22.sp, fontWeight = FontWeight.Medium)
         }
         Box(
-            Modifier.size(24.dp).pointerInput(Unit) { detectTapGestures { onMenu() } },
+            Modifier.size(24.dp).pointerInput(Unit) {
+                detectTapGestures {
+                    Sfx.click()
+                    onMenu()
+                }
+            },
             contentAlignment = Alignment.Center,
         ) {
             Text("···", color = Ink.Text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -312,7 +343,12 @@ fun RoundButton(
             .clip(CircleShape)
             .background(background)
             .then(if (border != null) Modifier.border(1.dp, border, CircleShape) else Modifier)
-            .pointerInput(Unit) { detectTapGestures { onClick() } },
+            .pointerInput(Unit) {
+                detectTapGestures {
+                    Sfx.click()
+                    onClick()
+                }
+            },
         contentAlignment = Alignment.Center,
     ) { content() }
 }
@@ -389,6 +425,7 @@ fun SwipeRow(
                                     currentClick()
                                 } else {
                                     val settled = offset.value
+                                    if (settled > threshold || settled < -threshold) Sfx.click()
                                     when {
                                         settled > threshold -> currentRight()
                                         settled < -threshold -> currentLeft()

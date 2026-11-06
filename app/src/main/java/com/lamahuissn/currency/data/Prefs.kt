@@ -34,6 +34,11 @@ class Prefs(context: Context) {
         }
         set(value) = sp.edit().putString("pinned", value.joinToString(",")).apply()
 
+    /** Touch sound on/off, from the list menu. Default on. */
+    var soundOn: Boolean
+        get() = sp.getBoolean("soundOn", true)
+        set(value) = sp.edit().putBoolean("soundOn", value).apply()
+
     var updatedAt: Long
         get() = sp.getLong("updatedAt", 0L)
         set(value) = sp.edit().putLong("updatedAt", value).apply()

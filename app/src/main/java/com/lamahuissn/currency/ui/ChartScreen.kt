@@ -161,7 +161,12 @@ fun ChartScreen(
                         modifier = Modifier
                             .clip(RoundedCornerShape(14.dp))
                             .background(chipBackground)
-                            .pointerInput(period) { detectTapGestures { onPeriod(period) } }
+                            .pointerInput(period) {
+                                detectTapGestures {
+                                    Sfx.click()
+                                    onPeriod(period)
+                                }
+                            }
                             .padding(horizontal = 12.dp, vertical = 7.dp),
                     ) {
                         Text(

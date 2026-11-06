@@ -48,6 +48,22 @@ fun sectionStartIndices(
     return out
 }
 
+/**
+ * Reordering one row: take it out, then insert it at the target's ORIGINAL index.
+ *
+ * Done by code rather than by index because the dragged list is filtered (the base currency is not
+ * one of its own targets) while the stored list is not — the two indices do not line up, and moving
+ * by a raw index silently moves the wrong currency.
+ */
+fun moveItem(list: List<String>, from: String, to: String): List<String> {
+    val fromIndex = list.indexOf(from)
+    val toIndex = list.indexOf(to)
+    if (fromIndex < 0 || toIndex < 0 || fromIndex == toIndex) return list
+    val out = list.toMutableList()
+    out.add(toIndex, out.removeAt(fromIndex))
+    return out
+}
+
 /** Pinning is a toggle: the same gesture takes the row back down. */
 fun togglePin(pinned: List<String>, code: String): List<String> =
     if (pinned.contains(code)) pinned - code else pinned + code
