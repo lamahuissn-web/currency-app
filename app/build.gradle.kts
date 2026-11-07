@@ -33,8 +33,8 @@ android {
         applicationId = "com.lamahuissn.currency"
         minSdk = 26
         targetSdk = 36
-        versionCode = 18
-        versionName = "1.7.1"
+        versionCode = 19
+        versionName = "1.8.0"
     }
 
     if (!keystoreProperties.isEmpty) {
@@ -68,6 +68,13 @@ android {
         buildConfig = true
     }
 
+    testOptions {
+        unitTests {
+            // Robolectric needs the app's resources and manifest to render a real screen.
+            isIncludeAndroidResources = true
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -94,6 +101,20 @@ kotlin {
     }
 }
 
+/**
+ * Robolectric drives the real Android runtime on the JVM, and on JDK 17+ it has to reach into
+ * `jdk.internal.access` to fake file descriptors. Without these the very first test dies before a
+ * single pixel is drawn.
+ */
+tasks.withType<Test>().configureEach {
+    jvmArgs(
+        "--add-exports=java.base/jdk.internal.access=ALL-UNNAMED",
+        "--add-opens=java.base/java.lang=ALL-UNNAMED",
+        "--add-opens=java.base/java.util=ALL-UNNAMED",
+        "--add-opens=java.base/java.io=ALL-UNNAMED",
+    )
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
@@ -112,6 +133,11 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
     // org.json is an Android platform class; on a JVM unit test it is a stub that throws, so the
     // real jar on the test classpath is what makes the parsers testable at all.
     testImplementation(libs.json)

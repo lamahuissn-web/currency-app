@@ -87,8 +87,18 @@ jobs:
           sed -i "s/versionCode = [0-9]*/versionCode = $CODE/" app/build.gradle.kts
           grep -nE "versionCode|versionName" app/build.gradle.kts
 
-      - name: Unit tests
+      # Robolectric renders every screen on the JVM: the run writes PNGs, and the artifact below is
+      # the visual record of this build. No emulator, no device.
+      - name: Unit tests and screen captures
         run: ./gradlew :app:testDebugUnitTest --console=plain --stacktrace
+
+      - name: Upload screen captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: currency-screens
+          path: app/build/outputs/screens/
+          if-no-files-found: warn
 
       - name: Build release APK
         run: ./gradlew :app:assembleRelease --console=plain --stacktrace

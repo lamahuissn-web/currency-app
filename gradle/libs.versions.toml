@@ -10,6 +10,10 @@ composeBom = "2026.09.00"
 okhttp = "4.12.0"
 json = "20260814"
 junit = "4.13.2"
+# Screenshot tests: Robolectric renders the real composables on the JVM, so every screen can be
+# looked at without an emulator and without a phone.
+robolectric = "4.17"
+androidxTest = "1.7.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -25,6 +29,10 @@ androidx-compose-material3 = { group = "androidx.compose.material3", name = "mat
 androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+androidx-test-core = { group = "androidx.test", name = "core-ktx", version.ref = "androidxTest" }
+androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
+androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 json = { group = "org.json", name = "json", version.ref = "json" }
 
 [plugins]
