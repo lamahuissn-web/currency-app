@@ -473,6 +473,13 @@
 
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+    // The page in front of you keeps the JavaScript it loaded with; a new worker means a new build
+    // is waiting. Naming it beats the "why is it still the old version?" conversation.
+    let hadController = Boolean(navigator.serviceWorker.controller);
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!hadController) { hadController = true; return; }
+      toast("New version ready — reopen the app");
+    });
   }
 
   /* ── expose + boot ───────────────────────────────────────────────────────── */

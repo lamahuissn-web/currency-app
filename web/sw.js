@@ -11,7 +11,7 @@
  * Bump CACHE whenever the shell changes — the HTML and JS are served from this cache, so a stale
  * version string means users keep the old build until they clear site data.
  */
-const CACHE = "currency-shell-v7";
+const CACHE = "currency-shell-v8";
 const SHELL = [
   "./",
   "./index.html",
@@ -41,6 +41,18 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
   const url = new URL(request.url);
+
+  // A navigation goes to the network first, so a deploy lands on the first reload; the cached shell
+  // is only the fallback when the network is gone. Static assets stay cache-first for speed.
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request).then((res) => {
+        if (res && res.ok) caches.open(CACHE).then((cache) => cache.put("./index.html", res.clone()));
+        return res;
+      }).catch(() => caches.match("./index.html").then((hit) => hit || caches.match("./")))
+    );
+    return;
+  }
 
   if (url.origin === location.origin) {
     event.respondWith(
