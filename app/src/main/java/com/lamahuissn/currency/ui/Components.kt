@@ -64,6 +64,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lamahuissn.currency.data.GestureAxis
+import com.lamahuissn.currency.data.GestureRules
 import com.lamahuissn.currency.data.Metals
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -474,14 +476,21 @@ fun SwipeRow(
                     val slop = viewConfiguration.touchSlop
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
-                        var dragging = false
-                        var lastX = down.position.x
                         val startX = down.position.x
+                        val startY = down.position.y
+                        var lastX = startX
+                        // The gesture is undecided until it moves far enough to have a direction. A
+                        // vertical drag belongs to the LazyColumn: claiming it here is what made the
+                        // list feel stuck under the thumb.
+                        var swiping = false
+                        var handedToScroll = false
                         while (true) {
                             val event = awaitPointerEvent()
                             val change = event.changes.firstOrNull { it.id == down.id } ?: break
+
                             if (!change.pressed) {
-                                if (!dragging) {
+                                if (handedToScroll) break
+                                if (!swiping) {
                                     currentClick()
                                 } else {
                                     val settled = offset.value
@@ -494,12 +503,33 @@ fun SwipeRow(
                                 }
                                 break
                             }
-                            val dx = change.position.x - lastX
-                            lastX = change.position.x
-                            if (!dragging && abs(change.position.x - startX) > slop) dragging = true
-                            if (dragging) {
+
+                            if (!swiping && !handedToScroll) {
+                                when (
+                                    GestureRules.axis(
+                                        dxTotal = change.position.x - startX,
+                                        dyTotal = change.position.y - startY,
+                                        slop = slop,
+                                    )
+                                ) {
+                                    GestureAxis.Swipe -> swiping = true
+                                    GestureAxis.Scroll -> {
+                                        // It is a scroll: stop looking at this gesture entirely, so
+                                        // the row never consumes a single move from the list.
+                                        handedToScroll = true
+                                        break
+                                    }
+                                    GestureAxis.Undecided -> Unit
+                                }
+                            }
+
+                            if (swiping) {
                                 change.consume()
+                                val dx = change.position.x - lastX
+                                lastX = change.position.x
                                 val next = (offset.value + dx).coerceIn(-maxSwipe, maxSwipe)
+                                // A pointer loop is a restricted scope: the animation must be moved
+                                // onto the composition's scope.
                                 scope.launch { offset.snapTo(next) }
                             }
                         }
