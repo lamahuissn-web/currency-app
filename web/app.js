@@ -666,7 +666,10 @@
       if (d) d.setAttribute("opacity", "0");
     };
 
-    wrap.onpointerdown = (e) => { wrap.setPointerCapture(e.pointerId); move(e.clientX); };
+    wrap.onpointerdown = (e) => {
+      try { wrap.setPointerCapture(e.pointerId); } catch (err) { /* no capture: scrubbing still works */ }
+      move(e.clientX);
+    };
     wrap.onpointermove = (e) => { if (e.buttons || e.pointerType === "touch") move(e.clientX); };
     wrap.onpointerup = (e) => { move(e.clientX); setTimeout(clear, 1400); };
     wrap.onpointerleave = clear;
