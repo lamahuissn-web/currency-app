@@ -52,11 +52,13 @@ private val scheme = darkColorScheme(
 )
 
 private val typography = Typography(
-    displaySmall = TextStyle(fontSize = 34.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1).sp),
-    headlineSmall = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold),
-    titleMedium = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
-    bodyMedium = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium),
-    labelSmall = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.4.sp),
+    // fontFeatureSettings = "tnum": digits keep one width, so a figure that changes does not shove
+    // the rest of the line sideways while it animates.
+    displaySmall = TextStyle(fontSize = 34.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1).sp, fontFeatureSettings = "tnum"),
+    headlineSmall = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum"),
+    titleMedium = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold, fontFeatureSettings = "tnum"),
+    bodyMedium = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum"),
+    labelSmall = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.4.sp, fontFeatureSettings = "tnum"),
 )
 
 @Composable

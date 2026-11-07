@@ -1,6 +1,7 @@
 package com.lamahuissn.currency.ui
 
 import androidx.compose.foundation.background
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -21,6 +22,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -42,7 +45,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -71,7 +76,9 @@ fun ConvertScreen(
     onRefresh: () -> Unit,
     onToggleSound: () -> Unit,
     onSelectTab: (NavTab) -> Unit,
+    listState: LazyListState = rememberLazyListState(),
 ) {
+    val haptics = LocalHapticFeedback.current
     var menuOpen by remember { mutableStateOf(false) }
     var metalFor by remember { mutableStateOf<String?>(null) }
 
@@ -91,6 +98,16 @@ fun ConvertScreen(
     var reorderMode by remember { mutableStateOf(false) }
     var dragging by remember { mutableStateOf<String?>(null) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
+    // Android's back must dismiss what is open, not leave the app: a sheet is a place you came from.
+    BackHandler(enabled = menuOpen || metalFor != null || reorderMode) {
+        when {
+            metalFor != null -> metalFor = null
+            menuOpen -> menuOpen = false
+            // Reorder mode is a mode: back leaves the mode, not the screen.
+            else -> { dragging = null; dragOffset = 0f; reorderMode = false }
+        }
+    }
+
     val base = CurrencyCatalog.of(state.base)
 
     // A row is 64dp plus its hairline; the drag maths needs that exact pitch.
@@ -182,6 +199,7 @@ fun ConvertScreen(
                                     detectDragGestures(
                                         onDragStart = {
                                             Sfx.click()
+                                            haptics.bump()
                                             dragging = code
                                             dragOffset = 0f
                                         },
@@ -239,6 +257,7 @@ fun ConvertScreen(
                 ) {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
+                        state = listState,
                         contentPadding = PaddingValues(bottom = 120.dp),
                     ) {
                         item(key = "base") {
@@ -266,8 +285,8 @@ fun ConvertScreen(
                                 else -> "—"
                             }
                             SwipeRow(
-                                onSwipeRight = { onPin(code) },
-                                onSwipeLeft = { onRemove(code) },
+                                onSwipeRight = { haptics.bump(); onPin(code) },
+                                onSwipeLeft = { haptics.bump(); onRemove(code) },
                                 pinned = pinned,
                                 modifier = Modifier.animateItem(),
                                 onClick = {

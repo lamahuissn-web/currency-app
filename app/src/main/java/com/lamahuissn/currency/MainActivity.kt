@@ -2,6 +2,7 @@ package com.lamahuissn.currency
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
@@ -93,6 +94,11 @@ private fun Root(viewModel: AppViewModel = viewModel()) {
         }
     }
 
+    // One scroll position per tab, held here: AnimatedContent disposes a screen when it changes, so
+    // a state kept inside the screen would send the list back to the top on every visit.
+    val convertList = androidx.compose.foundation.lazy.rememberLazyListState()
+    val countList = androidx.compose.foundation.lazy.rememberLazyListState()
+
     var tab by remember { mutableStateOf(NavTab.Convert) }
     var addingCurrency by remember { mutableStateOf(false) }
     var keypadFor by remember { mutableStateOf<String?>(null) }
@@ -105,6 +111,21 @@ private fun Root(viewModel: AppViewModel = viewModel()) {
     SideEffect {
         if (keypadFor != null) lastKeypad = keypadFor
         if (pickingPair != null) lastPicker = pickingPair
+    }
+
+    // Back dismisses what is open — sheet first, splash second — and only then leaves the app.
+    BackHandler(
+        enabled = splashVisible || keypadFor != null || addingCurrency || pickingPair != null,
+    ) {
+        when {
+            keypadFor != null -> keypadFor = null
+            addingCurrency -> addingCurrency = false
+            pickingPair != null -> pickingPair = null
+            splashVisible -> {
+                splashVisible = false
+                markSplashSeen()
+            }
+        }
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -131,6 +152,7 @@ private fun Root(viewModel: AppViewModel = viewModel()) {
                         tab = selected
                         if (selected == NavTab.Chart) viewModel.setChartPair(chart.base, chart.quote)
                     },
+                    listState = convertList,
                 )
             } else if (current == NavTab.Chart) {
                 ChartScreen(
@@ -149,6 +171,7 @@ private fun Root(viewModel: AppViewModel = viewModel()) {
                     ratesLive = convert.error == null && convert.usdTo.isNotEmpty(),
                     ratesUpdatedAt = convert.updatedAt,
                     onSelectTab = { tab = it },
+                    listState = countList,
                 )
             }
         }

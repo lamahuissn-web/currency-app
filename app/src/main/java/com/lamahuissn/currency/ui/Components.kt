@@ -128,6 +128,7 @@ fun ValueBadge(text: String, solid: Boolean) {
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
+                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum"),
             )
         }
     }

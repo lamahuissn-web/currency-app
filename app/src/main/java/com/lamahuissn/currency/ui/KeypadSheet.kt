@@ -30,6 +30,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -120,6 +121,7 @@ fun KeypadSheet(
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 modifier = Modifier.fillMaxWidth(),
+                style = TextStyle(fontFeatureSettings = "tnum"),
             )
 
             Spacer(Modifier.height(6.dp))

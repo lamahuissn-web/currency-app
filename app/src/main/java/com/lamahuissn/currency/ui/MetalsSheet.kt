@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -74,6 +75,7 @@ fun MetalsSheet(
                             fontSize = 34.sp,
                             fontWeight = FontWeight.ExtraBold,
                             letterSpacing = (-1).sp,
+                            style = TextStyle(fontFeatureSettings = "tnum"),
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (live) {
@@ -167,6 +169,7 @@ private fun MetalRow(label: String, value: String, strong: Boolean = false, spac
             color = if (strong) Ink.Green else Ink.Text,
             fontSize = if (strong) 17.sp else 15.sp,
             fontWeight = if (strong) FontWeight.ExtraBold else FontWeight.SemiBold,
+            style = TextStyle(fontFeatureSettings = "tnum"),
         )
     }
 }

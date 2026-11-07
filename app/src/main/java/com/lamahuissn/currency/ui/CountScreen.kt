@@ -1,6 +1,7 @@
 package com.lamahuissn.currency.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
@@ -18,6 +19,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -47,7 +51,9 @@ import com.lamahuissn.currency.data.SavedCount
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 
 internal object CountScreenTime {
     private val format = SimpleDateFormat("dd MMM, HH:mm", Locale.ENGLISH)
@@ -74,7 +80,9 @@ fun CountScreen(
     ratesLive: Boolean,
     ratesUpdatedAt: Long,
     onSelectTab: (NavTab) -> Unit,
+    listState: LazyListState = rememberLazyListState(),
 ) {
+    val haptics = LocalHapticFeedback.current
     val context = LocalContext.current
     val prefs = remember { CountPrefs(context) }
     var state by remember { mutableStateOf(prefs.load()) }
@@ -87,6 +95,16 @@ fun CountScreen(
     fun commit(next: CountState) {
         state = next
         prefs.save(next)
+    }
+
+    // Back closes the sheet on top, in the order they were opened, before it closes the screen.
+    BackHandler(enabled = keypad != null || picking || ratesOpen || historyOpen) {
+        when {
+            keypad != null -> keypad = null
+            picking -> picking = false
+            historyOpen -> historyOpen = false
+            ratesOpen -> ratesOpen = false
+        }
     }
 
     val grand = CountMath.grandTotal(state.bag, state.counts, rates, state.manualRates)
@@ -180,6 +198,7 @@ fun CountScreen(
                             },
                         )
                         if (entry.totalUsd > 0.004) {
+                            haptics.bump()
                             commit(
                                 state.copy(
                                     history = (listOf(entry) + state.history).take(CountPrefs.HISTORY_LIMIT),
@@ -207,6 +226,7 @@ fun CountScreen(
                         fontSize = 44.sp,
                         fontWeight = FontWeight.ExtraBold,
                         letterSpacing = (-1.5).sp,
+                        style = TextStyle(fontFeatureSettings = "tnum"),
                     )
                     Text(
                         text = "." + String.format(Locale.US, "%02d", (cents % 100).toInt()),
@@ -214,6 +234,7 @@ fun CountScreen(
                         fontSize = 44.sp,
                         fontWeight = FontWeight.ExtraBold,
                         letterSpacing = (-1.5).sp,
+                        style = TextStyle(fontFeatureSettings = "tnum"),
                     )
                 }
                 Text(
@@ -294,6 +315,7 @@ fun CountScreen(
 
             LazyColumn(
                 Modifier.weight(1f),
+                state = listState,
                 contentPadding = PaddingValues(bottom = 120.dp),
             ) {
                 items(state.bag) { code ->
@@ -371,6 +393,7 @@ fun CountScreen(
                                     quantity = stack[denomination] ?: 0,
                                     onStep = { delta ->
                                         Sfx.click()
+                                        haptics.tick()
                                         commit(
                                             state.copy(
                                                 counts = state.counts + (code to
@@ -380,6 +403,7 @@ fun CountScreen(
                                     },
                                     onType = {
                                         Sfx.click()
+                                        haptics.bump()
                                         keypad = KeypadRequest(
                                             kind = KeypadKind.Notes,
                                             code = code,
@@ -574,6 +598,7 @@ private fun DenominationRow(
                 color = Ink.Text,
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold,
+                style = TextStyle(fontFeatureSettings = "tnum"),
             )
             Text("banknote", color = Ink.Muted, fontSize = 10.sp, letterSpacing = 0.5.sp)
         }
@@ -593,6 +618,7 @@ private fun DenominationRow(
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
+                style = TextStyle(fontFeatureSettings = "tnum"),
                 modifier = Modifier
                     .width(32.dp)
                     .combinedClickable(onClick = onType, onLongClick = onType),
@@ -613,6 +639,7 @@ private fun DenominationRow(
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.End,
             modifier = Modifier.width(84.dp),
+            style = TextStyle(fontFeatureSettings = "tnum"),
         )
     }
 }
