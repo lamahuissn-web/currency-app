@@ -279,8 +279,19 @@
   $("pickerClose").addEventListener("click", () => sheetClose("picker"));
 
   /* ── rates ───────────────────────────────────────────────────────────────── */
+  function offlineNotice() {
+    state.live = false;
+    renderStatus();
+    $("footLeft").textContent = state.updated
+      ? "Offline — rates from " + new Date(state.updated).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
+      : "Offline — built-in reference rates, not live";
+  }
+
   async function loadRates(force) {
     const started = performance.now();
+    // A hard offline is known before asking: skip the request and say so, rather than waiting out
+    // a timeout and then blaming the feed.
+    if (navigator.onLine === false) { offlineNotice(); return; }
     $("statusText").textContent = "…";
     try {
       const [fiat, gold, silver] = await Promise.all([
@@ -301,11 +312,7 @@
       if (window.ChartView) window.ChartView.onRates();
       if (window.CountView) window.CountView.render();
     } catch (err) {
-      state.live = false;
-      renderStatus();
-      $("footLeft").textContent = state.updated
-        ? "Offline — rates from " + new Date(state.updated).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
-        : "Offline — built-in reference rates, not live";
+      offlineNotice();
     }
   }
 
