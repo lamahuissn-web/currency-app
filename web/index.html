@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Currency — web preview</title>
+<style>
+  :root{
+    --page:#000000;
+    --surface:#1C1C1E;
+    --surface-2:#2C2C2E;
+    --line:#2E2E31;
+    --green:#00D632;
+    --green-dim:#0B3A1C;
+    --muted:#9E9EA4;
+    --red:#FF453A;
+    --amber:#FFB020;
+    --gold:#FFE08A;
+    --wine:#2A0E12;
+    --wine-2:#3A1218;
+    --radius:18px;
+    --nav-h:64px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--page);color:#fff}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,system-ui,sans-serif;
+    font-variant-numeric:tabular-nums;
+    font-feature-settings:"tnum" 1;
+    -webkit-font-smoothing:antialiased;
+    overscroll-behavior-y:contain;
+  }
+  /* On a desktop the phone layout sits centred; on a phone it is the page. */
+  .shell{
+    max-width:460px;margin:0 auto;min-height:100dvh;
+    padding:max(14px,env(safe-area-inset-top)) 16px calc(var(--nav-h) + 24px);
+    display:flex;flex-direction:column;gap:14px;
+  }
+  header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-top:6px}
+  .title{font-size:30px;line-height:1.05;font-weight:730;letter-spacing:-.02em}
+  .subtitle{font-size:13px;color:var(--muted);margin-top:5px}
+  .status{
+    display:flex;align-items:center;gap:6px;flex-shrink:0;
+    background:var(--surface);border:1px solid var(--line);color:#EDEDED;
+    padding:7px 11px;border-radius:999px;font-size:11.5px;font-weight:600;white-space:nowrap;
+  }
+  .status .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 9px var(--green);flex-shrink:0}
+  .status.stale .dot{background:var(--amber);box-shadow:0 0 9px var(--amber)}
+
+  /* ── base amount card ───────────────────────────────── */
+  .base{
+    background:linear-gradient(168deg,#232325 0%,#1A1A1C 62%,#161617 100%);
+    border:1px solid var(--line);border-radius:22px;padding:16px 18px 14px;
+    position:relative;overflow:hidden;cursor:pointer;
+    transition:transform .12s ease, border-color .2s ease;
+  }
+  .base:active{transform:scale(.994)}
+  .base::after{
+    content:"";position:absolute;inset:auto -30% -70% auto;width:220px;height:220px;
+    background:radial-gradient(circle,rgba(0,214,50,.13),transparent 68%);pointer-events:none;
+  }
+  .base-top{display:flex;align-items:center;gap:10px}
+  .pill{
+    display:inline-flex;align-items:center;gap:7px;background:var(--surface-2);
+    border:1px solid #3A3A3D;padding:6px 10px 6px 8px;border-radius:999px;
+    font-size:13px;font-weight:700;
+  }
+  .caret{color:var(--muted);font-size:11px;margin-left:1px}
+  .label{font-size:11px;font-weight:700;letter-spacing:.09em;color:var(--muted);margin-left:auto}
+  .amount{
+    display:flex;align-items:baseline;gap:2px;margin-top:12px;font-weight:700;
+    font-size:40px;letter-spacing:-.03em;line-height:1;
+  }
+  .amount .cur{font-size:19px;color:var(--muted);font-weight:650;margin-right:6px}
+  .amount .cents{font-size:24px;color:var(--green);letter-spacing:-.01em}
+  .base-foot{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
+  .name{font-size:12.5px;color:var(--muted)}
+  .edit{font-size:11.5px;color:#8F8F96}
+
+  /* ── search ─────────────────────────────────────────── */
+  .search{
+    display:flex;align-items:center;gap:9px;background:var(--surface);
+    border:1px solid var(--line);border-radius:13px;padding:11px 13px;
+  }
+  .search svg{opacity:.5;flex-shrink:0}
+  .search input{
+    flex:1;background:none;border:0;outline:0;color:#fff;font-size:15px;font-family:inherit;min-width:0;
+  }
+  .search input::placeholder{color:#8A8A92}
+
+  /* ── rows ───────────────────────────────────────────── */
+  .list{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+  .row{
+    display:flex;align-items:center;gap:12px;background:var(--surface);
+    border:1px solid transparent;border-radius:16px;padding:13px 15px;
+    transition:background .15s ease,border-color .15s ease,transform .12s ease;
+  }
+  .row:active{transform:scale(.992);background:#202022}
+  .row.pinned{border-color:#1F5B31;background:linear-gradient(180deg,#12201699,#1C1C1E)}
+  .badge{
+    width:38px;height:38px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;
+    font-size:15px;font-weight:800;letter-spacing:-.02em;color:#0B0B0C;
+    background:#D9D9DE;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15);
+  }
+  .badge.metal-gold{background:linear-gradient(145deg,#FFE08A,#E0AE2B 58%,#8A5E00);color:#3A2600}
+  .badge.metal-silver{background:linear-gradient(145deg,#F7F7FA,#C9C9CF 58%,#6E6E75);color:#26262A}
+  .badge.fiat{background:var(--surface-2);color:#EDEDEF;box-shadow:inset 0 0 0 1px #3A3A3D;font-size:12px;letter-spacing:.02em}
+  .badge.flag{background:#26262A;font-size:22px;line-height:1;box-shadow:inset 0 0 0 1px #3A3A3D}
+  .row-main{flex:1;min-width:0}
+  .code{font-size:15.5px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:6px}
+  .name-sm{font-size:11.5px;color:#9A9AA0;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .value{text-align:right;flex-shrink:0}
+  .value .num{font-size:16.5px;font-weight:700;letter-spacing:-.01em;white-space:nowrap}
+  .value .sub{font-size:11px;color:var(--muted);margin-top:2px}
+  .value.metal .num{color:var(--gold);font-size:15px}
+  .up{color:var(--green)}
+  .down{color:var(--red)}
+  .pin{font-size:11px;color:var(--green)}
+
+  .foot{
+    display:flex;align-items:center;justify-content:space-between;
+    font-size:11.5px;color:#6E6E73;padding:2px 4px 0;
+  }
+  .foot .ghost{color:var(--green);font-weight:600}
+  /* Content dissolving under the nav bar reads as depth; a hard cut reads as a bug. */
+  .fade{position:fixed;left:0;right:0;bottom:var(--nav-h);height:46px;z-index:35;pointer-events:none;
+    background:linear-gradient(180deg,#0000,#000 82%)}
+
+  /* ── bottom nav ─────────────────────────────────────── */
+  .tabs{
+    position:fixed;left:0;right:0;bottom:0;z-index:40;
+    background:rgba(12,12,13,.86);backdrop-filter:blur(22px) saturate(160%);
+    border-top:1px solid #1E1E20;
+    padding:8px max(16px,env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom));
+  }
+  .tabs-inner{max-width:460px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .tab{
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    padding:7px 0 4px;border-radius:13px;font-size:11px;font-weight:650;color:var(--muted);
+    background:none;border:0;font-family:inherit;cursor:pointer;
+  }
+  .tab svg{width:22px;height:22px}
+  .tab.active{color:var(--green);background:#0C241382}
+
+  /* ── keypad sheet ───────────────────────────────────── */
+  .scrim{
+    position:fixed;inset:0;background:#0009;backdrop-filter:blur(2px);z-index:50;
+    opacity:0;pointer-events:none;transition:opacity .22s ease;
+  }
+  .scrim.open{opacity:1;pointer-events:auto}
+  .sheet{
+    position:fixed;left:0;right:0;bottom:0;z-index:60;
+    background:linear-gradient(180deg,var(--wine-2),var(--wine) 40%,#1F0A0D);
+    border-radius:26px 26px 0 0;border-top:1px solid #4E2028;
+    padding:10px 14px calc(14px + env(safe-area-inset-bottom));
+    max-width:460px;margin:0 auto;
+    transform:translateY(104%);transition:transform .28s cubic-bezier(.22,1,.36,1);
+    box-shadow:0 -20px 50px #000a;
+  }
+  .sheet.open{transform:translateY(0)}
+  .grab{width:38px;height:4px;border-radius:99px;background:#5A2A33;margin:4px auto 12px}
+  .sheet-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding:0 4px}
+  .sheet-title{font-size:12.5px;color:#E7C9CE;font-weight:600}
+  .sheet-cur{font-size:12.5px;color:#F3D8DC;font-weight:700}
+  .entry{
+    background:#1D0A0D;border:1px solid #4E2028;border-radius:14px;
+    padding:14px 16px;text-align:right;font-size:30px;font-weight:700;letter-spacing:-.02em;
+    min-height:64px;display:flex;align-items:center;justify-content:flex-end;
+    overflow:hidden;white-space:nowrap;
+  }
+  .entry.idle{color:#7C5A60;font-size:19px;font-weight:600}
+  .entry .tail{color:var(--green)}
+  .keys{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+  .key{
+    border:0;border-radius:14px;background:#2B1116;color:#fff;font-family:inherit;
+    font-size:23px;font-weight:600;padding:15px 0;cursor:pointer;
+    transition:transform .07s ease,background .12s ease;
+  }
+  .key:active{transform:scale(.96);background:#3A171E}
+  .key.fn{background:#3A1119;color:#FFC9C2;font-size:20px}
+  .key.op{background:#0F2A19;color:#7BF3A3;font-size:22px}
+  .key.go{background:var(--green);color:#04140A;font-weight:800;font-size:17px;letter-spacing:.02em}
+  .key.zero{grid-column:span 1}
+  .chips{display:flex;gap:8px;margin-top:10px}
+  .chip{
+    flex:1;border:1px solid #4E2028;background:#210C10;color:#F0C7CC;border-radius:11px;
+    padding:9px 0;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;
+  }
+  .chip:active{background:#33141A}
+  .toast{
+    position:fixed;left:50%;bottom:calc(var(--nav-h) + 22px);transform:translate(-50%,14px);
+    background:#121314ee;border:1px solid #2A2A2C;color:#EDEDED;padding:9px 14px;border-radius:999px;
+    font-size:12.5px;font-weight:600;opacity:0;pointer-events:none;transition:.24s ease;z-index:70;
+    backdrop-filter:blur(12px);max-width:88vw;text-align:center;
+  }
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <div>
+      <div class="title">Currency</div>
+      <div class="subtitle">Rates · gold · count</div>
+    </div>
+    <button class="status" id="status" type="button" title="Tap to refresh">
+      <span class="dot"></span><span id="statusText">Updated</span>
+    </button>
+  </header>
+
+  <section class="base" id="baseCard">
+    <div class="base-top">
+      <span class="pill"><span id="baseFlag" class="badge fiat" style="width:20px;height:20px;font-size:9px">$</span><span id="baseCode">USD</span><span class="caret">▾</span></span>
+      <span class="label">AMOUNT TO CONVERT</span>
+    </div>
+    <div class="amount">
+      <span class="cur" id="baseSymbol">$</span>
+      <span id="amountInt">100</span><span class="cents" id="amountCents">.00</span>
+    </div>
+    <div class="base-foot">
+      <span class="name" id="baseName">United States Dollar</span>
+      <span class="edit" id="editAmount">Tap to type</span>
+    </div>
+  </section>
+
+  <div class="search">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>
+    <input id="search" type="search" placeholder="Search 166 currencies, gold, silver" autocomplete="off" spellcheck="false">
+  </div>
+
+  <ul class="list" id="list"></ul>
+
+  <div class="foot">
+    <span id="footLeft">Rates by open.er-api.com</span>
+    <span class="ghost" id="resetOrder">Reset order</span>
+  </div>
+</div>
+
+<div class="fade"></div>
+<nav class="tabs">
+  <div class="tabs-inner">
+    <button class="tab active" type="button" data-tab="convert">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3v18"/><path d="M17 7.5c0-1.9-2.2-3-5-3s-5 1.1-5 3 2.2 2.7 5 3.3 5 1.4 5 3.4-2.2 3.3-5 3.3-5-1.4-5-3.3"/></svg>
+      Convert
+    </button>
+    <button class="tab" type="button" data-tab="chart">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 17l5-6 4 3 6-8"/><path d="M4 21h16" opacity=".45"/></svg>
+      Chart
+    </button>
+    <button class="tab" type="button" data-tab="count">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="7" width="18" height="11" rx="2"/><path d="M3 11h18" opacity=".5"/><path d="M7 15h3"/></svg>
+      Count
+    </button>
+  </div>
+</nav>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Amount keypad">
+  <div class="grab"></div>
+  <div class="sheet-head">
+    <span class="sheet-title">Convert from</span>
+    <span class="sheet-cur" id="sheetCur">USD · United States Dollar</span>
+  </div>
+  <div class="entry idle" id="entry">Tap digits — arithmetic allowed</div>
+  <div class="chips">
+    <button class="chip" type="button" data-chip="1000">+1,000</button>
+    <button class="chip" type="button" data-chip="100">+100</button>
+    <button class="chip" type="button" data-chip="10">+10</button>
+    <button class="chip" type="button" data-chip="0.5">+0.50</button>
+  </div>
+  <div class="keys">
+    <button class="key fn" type="button" data-key="C">C</button>
+    <button class="key fn" type="button" data-key="back">⌫</button>
+    <button class="key op" type="button" data-key="(">(</button>
+    <button class="key op" type="button" data-key=")">)</button>
+
+    <button class="key" type="button" data-key="7">7</button>
+    <button class="key" type="button" data-key="8">8</button>
+    <button class="key" type="button" data-key="9">9</button>
+    <button class="key op" type="button" data-key="÷">÷</button>
+
+    <button class="key" type="button" data-key="4">4</button>
+    <button class="key" type="button" data-key="5">5</button>
+    <button class="key" type="button" data-key="6">6</button>
+    <button class="key op" type="button" data-key="×">×</button>
+
+    <button class="key" type="button" data-key="1">1</button>
+    <button class="key" type="button" data-key="2">2</button>
+    <button class="key" type="button" data-key="3">3</button>
+    <button class="key op" type="button" data-key="−">−</button>
+
+    <button class="key" type="button" data-key="0">0</button>
+    <button class="key" type="button" data-key=".">.</button>
+    <button class="key op" type="button" data-key="+">+</button>
+    <button class="key go" type="button" data-key="go">CONVERT</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+(() => {
+  "use strict";
+
+  /* ── catalogue ────────────────────────────────────────────────────────────
+     Only what the preview needs: name and symbol for the currencies a Lebanese
+     cash desk actually touches, plus the majors. Rates arrive from the API.   */
+  const CAT = {
+    USD:["United States Dollar","$"],   EUR:["Euro","€"],            GBP:["British Pound","£"],
+    LBP:["Lebanese Pound","L£"],        SYP:["Syrian Pound","S£"],    EGP:["Egyptian Pound","E£"],
+    TRY:["Turkish Lira","₺"],           SAR:["Saudi Riyal","SAR"],    AED:["UAE Dirham","AED"],
+    QAR:["Qatari Riyal","QAR"],         KWD:["Kuwaiti Dinar","KWD"],  BHD:["Bahraini Dinar","BHD"],
+    OMR:["Omani Rial","OMR"],           JOD:["Jordanian Dinar","JOD"],ILS:["Israeli Shekel","₪"],
+    IQD:["Iraqi Dinar","IQD"],          IRR:["Iranian Rial","IRR"],   MAD:["Moroccan Dirham","MAD"],
+    DZD:["Algerian Dinar","DZD"],       TND:["Tunisian Dinar","TND"], LYD:["Libyan Dinar","LYD"],
+    SDG:["Sudanese Pound","SDG"],       YER:["Yemeni Rial","YER"],    INR:["Indian Rupee","₹"],
+    PKR:["Pakistani Rupee","PKR"],      BDT:["Bangladeshi Taka","BDT"],LKR:["Sri Lankan Rupee","LKR"],
+    CNY:["Chinese Yuan","¥"],           JPY:["Japanese Yen","¥"],     KRW:["South Korean Won","₩"],
+    HKD:["Hong Kong Dollar","HK$"],     SGD:["Singapore Dollar","S$"],MYR:["Malaysian Ringgit","RM"],
+    THB:["Thai Baht","฿"],              IDR:["Indonesian Rupiah","IDR"],PHP:["Philippine Peso","₱"],
+    VND:["Vietnamese Dong","₫"],        AUD:["Australian Dollar","A$"],NZD:["New Zealand Dollar","NZ$"],
+    CAD:["Canadian Dollar","C$"],       BRL:["Brazilian Real","R$"],  MXN:["Mexican Peso","MX$"],
+    ARS:["Argentine Peso","AR$"],       CLP:["Chilean Peso","CLP"],   COP:["Colombian Peso","COP"],
+    PEN:["Peruvian Sol","S/"],          ZAR:["South African Rand","R"],NGN:["Nigerian Naira","₦"],
+    KES:["Kenyan Shilling","KSh"],      GHS:["Ghanaian Cedi","GH₵"],  RUB:["Russian Ruble","₽"],
+    UAH:["Ukrainian Hryvnia","₴"],      PLN:["Polish Zloty","zł"],    CZK:["Czech Koruna","Kč"],
+    HUF:["Hungarian Forint","Ft"],      RON:["Romanian Leu","lei"],   SEK:["Swedish Krona","kr"],
+    NOK:["Norwegian Krone","kr"],       DKK:["Danish Krone","kr"],    CHF:["Swiss Franc","CHF"],
+    ISK:["Icelandic Krona","kr"],       BTC:["Bitcoin","₿"],          ETH:["Ethereum","Ξ"],
+    XAU:["Gold · troy ounce",null],     XAG:["Silver · troy ounce",null],
+  };
+
+
+  /* Flags, not monograms: the same visual language as the Android build, and one glance beats
+     three letters. ISO country code per currency; crypto falls back to its own glyph. */
+  const FLAG = { USD:"US", EUR:"EU", GBP:"GB", LBP:"LB", SYP:"SY", EGP:"EG", TRY:"TR", SAR:"SA",
+    AED:"AE", QAR:"QA", KWD:"KW", BHD:"BH", OMR:"OM", JOD:"JO", ILS:"IL", IQD:"IQ", IRR:"IR",
+    MAD:"MA", DZD:"DZ", TND:"TN", LYD:"LY", SDG:"SD", YER:"YE", INR:"IN", PKR:"PK", BDT:"BD",
+    LKR:"LK", CNY:"CN", JPY:"JP", KRW:"KR", HKD:"HK", SGD:"SG", MYR:"MY", THB:"TH", IDR:"ID",
+    PHP:"PH", VND:"VN", AUD:"AU", NZD:"NZ", CAD:"CA", BRL:"BR", MXN:"MX", ARS:"AR", CLP:"CL",
+    COP:"CO", PEN:"PE", ZAR:"ZA", NGN:"NG", KES:"KE", GHS:"GH", RUB:"RU", UAH:"UA", PLN:"PL",
+    CZK:"CZ", HUF:"HU", RON:"RO", SEK:"SE", NOK:"NO", DKK:"DK", CHF:"CH", ISK:"IS" };
+  const flagOf = (code) => {
+    const cc = FLAG[code];
+    if (!cc) return null;
+    return String.fromCodePoint(...[...cc].map((c) => 0x1F1E6 + c.charCodeAt(0) - 65));
+  };
+
+  const FALLBACK = { USD:1, EUR:0.8905, GBP:0.742, LBP:89550.64, SYP:13002, EGP:53.899,
+    TRY:50.063, SAR:3.75, AED:3.6725, QAR:3.64, KWD:0.3067, BHD:0.376, OMR:0.3845,
+    JOD:0.709, ILS:3.34, IQD:1310, IRR:42000, MAD:9.24, DZD:129.5, TND:2.93, LYD:4.85,
+    SDG:601, YER:250, INR:94.469, PKR:283.6, BDT:122.3, LKR:296.5, CNY:7.03, JPY:147.2,
+    KRW:1370, HKD:7.81, SGD:1.28, MYR:4.14, THB:32.2, IDR:16250, PHP:57.6, VND:25400,
+    AUD:1.54, NZD:1.68, CAD:1.37, BRL:5.35, MXN:18.4, ARS:1250, CLP:945, COP:3900,
+    PEN:3.55, ZAR:17.3, NGN:1450, KES:129, GHS:11.7, RUB:79.5, UAH:41.5, PLN:3.62,
+    CZK:20.8, HUF:335, RON:4.43, SEK:9.35, NOK:9.98, DKK:6.65, CHF:0.798, ISK:122,
+    BTC:0.0000091, ETH:0.00023,
+  };
+
+  const state = {
+    base:"USD",
+    amount:100,
+    rates:{...FALLBACK},
+    metals:{},
+    order:["LBP","EUR","GBP","EGP","TRY","SYR","INR","AED","SAR","XAU","XAG","BTC","JPY","CNY","CHF","CAD","AUD"],
+    updated:0,
+    live:false,
+    filter:"",
+    entry:"",
+  };
+  state.order = ["LBP","EUR","GBP","EGP","TRY","INR","AED","SAR","XAU","XAG","BTC","JPY","CNY","CHF","CAD","AUD"];
+
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+
+  /* ── formatting ───────────────────────────────────────────────────────── */
+  const nf = (v, max = 2) => v.toLocaleString("en-US", { minimumFractionDigits: max, maximumFractionDigits: max });
+  const grouped = (v) => {
+    const abs = Math.abs(v);
+    const dec = abs >= 100000 ? 0 : abs >= 1 ? 2 : 4;
+    return v.toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  };
+  const perUsd = (code) => code === "XAU" || code === "XAG" ? state.metals[code] : state.rates[code];
+
+  /* The app's single convention: a table of units per 1 USD. An amount becomes USD by DIVIDING,
+     then becomes the target by MULTIPLYING. Getting this backwards made 100 USD look like 1.06 INR. */
+  const convert = (value, from, to) => {
+    const f = perUsd(from), t = perUsd(to);
+    if (!f || !t) return 0;
+    return (value / f) * t;
+  };
+
+  /* ── expression parser: × ÷ before + −, trailing operator = running total ── */
+  function evaluate(raw) {
+    const src = raw.replace(/×/g, "*").replace(/÷/g, "/").replace(/−/g, "-").replace(/,/g, "").trim();
+    if (!src) return null;
+    const tokens = src.match(/\d*\.?\d+|[+\-*/()]/g);
+    if (!tokens || tokens.join("") !== src.replace(/\s+/g, "")) return null;
+    let i = 0;
+    const peek = () => tokens[i];
+    function primary() {
+      const t = tokens[i];
+      if (t === "(") { i++; const v = expr(); if (tokens[i] !== ")") throw 0; i++; return v; }
+      if (t === "-") { i++; return -primary(); }
+      if (t === undefined || !/^\d/.test(t)) throw 0;
+      i++; const v = Number(t); if (!Number.isFinite(v)) throw 0; return v;
+    }
+    function term() {
+      let v = primary();
+      while (peek() === "*" || peek() === "/") {
+        const op = tokens[i++]; const r = primary();
+        if (op === "/" && r === 0) throw 0;
+        v = op === "*" ? v * r : v / r;
+      }
+      return v;
+    }
+    const expr = () => { let v = term(); while (peek() === "+" || peek() === "-") { const op = tokens[i++]; const r = term(); v = op === "+" ? v + r : v - r; } return v; };
+    try { const v = expr(); return i === tokens.length && Number.isFinite(v) ? v : null; } catch { return null; }
+  }
+
+  /* ── rendering ────────────────────────────────────────────────────────── */
+  function renderBase() {
+    const meta = CAT[state.base] || [state.base, ""];
+    $("baseCode").textContent = state.base;
+    $("baseFlag").textContent = flagOf(state.base) || (state.base === "XAU" ? "Au" : "¤");
+    $("baseSymbol").textContent = meta[1] && meta[1].length <= 3 ? meta[1] : "";
+    const parts = nf(state.amount).split(".");
+    $("amountInt").textContent = parts[0];
+    $("amountCents").textContent = "." + (parts[1] || "00");
+    $("baseName").textContent = meta[0];
+    $("sheetCur").textContent = state.base + " · " + meta[0];
+  }
+
+  function renderStatus() {
+    const s = $("status");
+    if (!state.live) { s.classList.add("stale"); $("statusText").textContent = "Cached"; return; }
+    s.classList.remove("stale");
+    const t = new Date(state.updated);
+    $("statusText").textContent = "Updated " + t.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function badgeFor(code) {
+    const b = el("div", "badge");
+    if (code === "XAU") { b.classList.add("metal-gold"); b.textContent = "Au"; return b; }
+    if (code === "XAG") { b.classList.add("metal-silver"); b.textContent = "Ag"; return b; }
+    const flag = flagOf(code);
+    if (flag) { b.classList.add("flag"); b.textContent = flag; return b; }
+    b.classList.add("fiat");
+    b.textContent = (CAT[code] || [,""])[1] || code.slice(0, 1);
+    return b;
+  }
+
+  function rowFor(code) {
+    const li = el("li", "row");
+    if (code === "LBP") li.classList.add("pinned");
+    li.appendChild(badgeFor(code));
+
+    const main = el("div", "row-main");
+    const top = el("div", "code");
+    top.appendChild(el("span", null, code));
+    if (code === "LBP") top.appendChild(el("span", "pin", "★"));
+    main.appendChild(top);
+    main.appendChild(el("div", "name-sm", (CAT[code] || [code])[0]));
+    li.appendChild(main);
+
+    const val = el("div", "value");
+    const p = perUsd(code);
+    if (p && (code === "XAU" || code === "XAG")) {
+      val.classList.add("metal");
+      val.appendChild(el("div", "num", "$" + nf(p) + " / oz"));
+      val.appendChild(el("div", "sub", "24k $" + nf(p / 31.1034768) + "/g"));
+    } else if (p) {
+      // The row already says which currency this is; the number stands alone.
+      const sym = (CAT[code] || [,""])[1] || "";
+      const prefix = sym && !/^[A-Z]{3}$/.test(sym) && sym.length <= 2 ? sym + " " : "";
+      val.appendChild(el("div", "num", prefix + grouped(convert(state.amount, state.base, code))));
+    } else {
+      val.appendChild(el("div", "num", "—"));
+      val.appendChild(el("div", "sub", "no rate"));
+    }
+    li.appendChild(val);
+    li.addEventListener("click", () => {
+      if (code === state.base) return;
+      if (code === "XAU" || code === "XAG") { setBase(code); return; }
+      setBase(code);
+    });
+    return li;
+  }
+
+  function renderList() {
+    const list = $("list");
+    list.innerHTML = "";
+    const q = state.filter.trim().toLowerCase();
+    let codes = state.order.filter((c) => {
+      if (!q) return true;
+      const name = (CAT[c] || [c])[0].toLowerCase();
+      return c.toLowerCase().includes(q) || name.includes(q);
+    });
+    if (q) {
+      codes = Object.keys(CAT).filter((c) => {
+        const name = (CAT[c] || [c])[0].toLowerCase();
+        return c.toLowerCase().includes(q) || name.includes(q);
+      });
+    }
+    codes = codes.filter((c) => c !== state.base).slice(0, 60);
+    codes.forEach((c) => list.appendChild(rowFor(c)));
+    if (!codes.length) {
+      const empty = el("li", "foot", "Nothing matches “" + state.filter + "”");
+      empty.style.justifyContent = "center";
+      list.appendChild(empty);
+    }
+  }
+
+  function render() { renderBase(); renderStatus(); renderList(); }
+
+  function setBase(code) {
+    state.base = code;
+    render();
+    toast("Base set to " + code);
+  }
+
+  /* ── live rates ───────────────────────────────────────────────────────── */
+  async function loadRates(force) {
+    const started = performance.now();
+    $("statusText").textContent = "…";
+    try {
+      const [fiat, gold, silver] = await Promise.all([
+        fetch("https://open.er-api.com/v6/latest/USD", { cache: force ? "reload" : "default" }).then((r) => r.json()),
+        fetch("https://api.gold-api.com/price/XAU").then((r) => r.json()).catch(() => null),
+        fetch("https://api.gold-api.com/price/XAG").then((r) => r.json()).catch(() => null),
+      ]);
+      if (fiat && fiat.rates) state.rates = { ...state.rates, ...fiat.rates };
+      if (gold && gold.price) state.metals.XAU = gold.price;
+      if (silver && silver.price) state.metals.XAG = silver.price;
+      state.live = true;
+      state.updated = Date.now();
+      render();
+      const ms = Math.round(performance.now() - started);
+      $("footLeft").textContent = "Rates by open.er-api.com · " + ms + " ms";
+    } catch (err) {
+      state.live = false;
+      renderStatus();
+      $("footLeft").textContent = "Offline — showing the last known rates";
+    }
+  }
+
+  /* ── keypad ───────────────────────────────────────────────────────────── */
+  const sheet = $("sheet"), scrim = $("scrim"), entry = $("entry");
+  let entryRaw = "";
+
+  let entryFresh = false;
+  function openSheet() {
+    // The current amount is shown, not locked: the first digit starts a new number, the way a
+    // calculator does, instead of appending to "100" and turning it into "1001000".
+    entryRaw = state.amount ? String(state.amount) : "";
+    entryFresh = Boolean(entryRaw);
+    paintEntry();
+    scrim.classList.add("open");
+    sheet.classList.add("open");
+  }
+  function closeSheet() {
+    scrim.classList.remove("open");
+    sheet.classList.remove("open");
+  }
+  function paintEntry() {
+    if (!entryRaw) { entry.classList.add("idle"); entry.textContent = "Tap digits — arithmetic allowed"; return; }
+    entry.classList.remove("idle");
+    const shown = entryRaw.replace(/\*/g, " × ").replace(/\//g, " ÷ ").replace(/-/g, " − ");
+    const preview = evaluate(entryRaw);
+    entry.innerHTML = "";
+    entry.appendChild(el("span", null, shown));
+    if (preview != null) {
+      const tail = el("span", "tail", "  = " + grouped(preview));
+      entry.appendChild(tail);
+    }
+  }
+
+  function press(key) {
+    if (key === "C") { entryRaw = ""; entryFresh = false; paintEntry(); return; }
+    if (key === "back") { entryRaw = entryRaw.slice(0, -1); entryFresh = false; paintEntry(); return; }
+    if (entryFresh && (/^[0-9.]$/.test(key) || key === "(")) { entryRaw = ""; }
+    entryFresh = false;
+    if (key === "go") {
+      const v = evaluate(entryRaw);
+      if (v == null || v <= 0) { toast("That is not a number I can convert"); return; }
+      state.amount = v;
+      closeSheet();
+      render();
+      return;
+    }
+    if (/[+\-*/]/.test(key) && entryRaw && /[+\-*/]$/.test(entryRaw)) entryRaw = entryRaw.slice(0, -1);
+    entryRaw += key;
+    paintEntry();
+  }
+
+  document.querySelectorAll("[data-key]").forEach((b) => b.addEventListener("click", () => press(b.dataset.key)));
+  document.querySelectorAll("[data-chip]").forEach((b) => b.addEventListener("click", () => {
+    const v = evaluate(entryRaw || "0");
+    entryRaw = String((v || 0) + Number(b.dataset.chip));
+    paintEntry();
+  }));
+  $("baseCard").addEventListener("click", openSheet);
+  $("editAmount").addEventListener("click", (e) => { e.stopPropagation(); openSheet(); });
+  scrim.addEventListener("click", closeSheet);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeSheet();
+    if (/^[0-9.]$/.test(e.key)) press(e.key);
+    if (e.key === "Backspace") press("back");
+    if (e.key === "Enter") press("go");
+    if (e.key === "*") press("*");
+    if (e.key === "/") press("/");
+    if (e.key === "+") press("+");
+    if (e.key === "-") press("-");
+  });
+
+  $("search").addEventListener("input", (e) => { state.filter = e.target.value; renderList(); });
+  $("resetOrder").addEventListener("click", () => { state.filter = ""; $("search").value = ""; renderList(); toast("Order reset"); });
+  $("status").addEventListener("click", () => loadRates(true));
+  document.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => {
+    if (b.dataset.tab === "convert") return;
+    toast(b.dataset.tab === "chart" ? "Chart lands in the installable version" : "Count lands in the installable version");
+  }));
+
+  let toastTimer;
+  function toast(msg) {
+    const t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove("show"), 1900);
+  }
+
+  render();
+  loadRates(false);
+})();
+</script>
+</body>
+</html>
