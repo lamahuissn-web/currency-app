@@ -5,6 +5,10 @@ cash by banknote — including gold and silver by the ounce, gram and karat.
 
 Kotlin + Jetpack Compose, dark-first, no web view, no API keys, no account.
 
+There is also a **web build** of the same three screens, installable as an app:
+
+**https://lamahuissn-web.github.io/currency-app/** — no build step, no server, works offline.
+
 ## What it does
 
 **Convert** — one base amount against a watch list of 166 fiat codes and 16 coins. Swipe a row right
@@ -84,9 +88,36 @@ git tag v1.7.1 && git push origin v1.7.1
 The artifact is `currency-release-apk`; for a tag it is attached to the release. Release builds are
 deliberately **not** run on the development host — resource shrinking needs more memory than it has.
 
+## The web build
+
+`web/` is the same three screens as plain HTML, CSS and one JavaScript file — no framework, no
+bundler, no server. `.github/workflows/pages.yml` publishes it to GitHub Pages on every push that
+touches it.
+
+| File | Role |
+| --- | --- |
+| `index.html` | the shell: three views, keypad, pickers, history |
+| `app.css` | one stylesheet, the app's palette |
+| `app.js` | rate table, conversion direction, expression parser, all three views |
+| `manifest.webmanifest` + icons | makes it installable to the home screen |
+| `sw.js` | caches the shell only — never a price |
+
+Two rules are worth knowing before editing it:
+
+1. **Money goes through one function.** `convert(value, from, to)` divides into USD and multiplies
+   out of it, because the table is units per 1 USD. A second implementation drifted once and turned
+   50,000 LBP into four billion dollars.
+2. **Prices are never cached as if they were live.** The service worker deliberately ignores the rate
+   feeds: a cached HTTP response is indistinguishable from a fresh one, so the app keeps the last
+   known rates in `localStorage` and labels them `Cached 20:41` plus `Offline — rates from 7 Nov`.
+   The feeds are fetched with `cache: "no-store"` so a `200` always means the network answered.
+
+Offline works because the shell is cached; the numbers you saw last are drawn from storage, marked
+as stale, and replaced the moment the network returns.
+
 ## Tests
 
-`./gradlew :app:testDebugUnitTest` — 71 JVM tests: money formatting, list rules, gesture
+`./gradlew :app:testDebugUnitTest` — 76 JVM tests: money formatting, list rules, gesture
 disambiguation, the count arithmetic (mixed bags, karats, expected-vs-counted, the 50,000 LBP case),
 storage round-trips, and parsers pinned to bodies captured live from each endpoint.
 
@@ -100,6 +131,7 @@ app/src/main/java/com/lamahuissn/currency/
 app/src/test/        JVM tests
 app/src/test/resources/fixtures/   live captures from the endpoints
 design/              the HTML design demos the screens were built from
+web/                 the installable web build (GitHub Pages)
 ```
 
 ## License
