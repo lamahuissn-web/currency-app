@@ -284,9 +284,9 @@
     $("statusText").textContent = "…";
     try {
       const [fiat, gold, silver] = await Promise.all([
-        fetch("https://open.er-api.com/v6/latest/USD", { cache: force ? "reload" : "default" }).then((r) => r.json()),
-        fetch("https://api.gold-api.com/price/XAU").then((r) => r.json()).catch(() => null),
-        fetch("https://api.gold-api.com/price/XAG").then((r) => r.json()).catch(() => null),
+        fetch("https://open.er-api.com/v6/latest/USD", { cache: "no-store" }).then((r) => r.json()),
+        fetch("https://api.gold-api.com/price/XAU", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
+        fetch("https://api.gold-api.com/price/XAG", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
       ]);
       if (fiat && fiat.rates) state.rates = { ...state.rates, ...fiat.rates };
       if (gold && gold.price) state.metals.XAU = gold.price;
